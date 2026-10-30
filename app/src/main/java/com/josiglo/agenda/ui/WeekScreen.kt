@@ -12,16 +12,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,35 +31,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.josiglo.agenda.R
 import com.josiglo.agenda.data.Item
 import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
 import com.josiglo.agenda.time.DayClock
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.TextStyle
+import java.time.temporal.TemporalAdjusters
 
 /**
- * The next week, day by day. Pulling up past the end adds another week.
- * Items can be dragged to another day after a long press. They keep their
- * time. Calendar events stay where they are.
+ * This week from Monday to Sunday, with past days dimmed. A button at the
+ * end adds the next week. Items can be dragged to today or a later day after
+ * a long press and keep their time. Calendar events stay where they are.
  */
 @Composable
-fun UpcomingScreen(
+fun WeekScreen(
     items: List<Item>,
     calendars: Set<Long>,
     clock: DayClock,
@@ -73,44 +71,21 @@ fun UpcomingScreen(
     var hoveredDay by remember { mutableStateOf<LocalDate?>(null) }
     var rescheduling by remember { mutableStateOf<Item?>(null) }
     val list = rememberLazyListState()
-    val first = today.plusDays(1)
-    val last = today.plusDays(7L * weeks)
+    val todayLabel = stringResource(R.string.today)
+    val locale = LocalConfiguration.current.locales[0]
+    val first = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val last = first.plusDays(7L * weeks - 1)
     val events = rememberEvents(calendars, clock.start(first), clock.end(last))
     val days = (0 until 7L * weeks).map { first.plusDays(it) }
     val itemsByDay = items
-        .filter { it.kind != Kind.INBOX && !it.done && it.remindAt != null && clock.day(it.remindAt) in first..last }
+        .filter { it.kind != Kind.INBOX && it.remindAt != null && clock.day(it.remindAt) in first..last }
         .groupBy { clock.day(it.remindAt!!) }
-    val eventsByDay = events.filter { it.day in first..last && (it.allDay || it.begin >= clock.start(first)) }.groupBy { it.day }
-
-    // How far the list has been pulled up past its end, in pixels.
-    val threshold = with(LocalDensity.current) { 120.dp.toPx() }
-    var pulled by remember { mutableFloatStateOf(0f) }
-    val pull = remember(threshold) {
-        object : NestedScrollConnection {
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.UserInput && available.y < 0) {
-                    pulled -= available.y
-                    if (pulled >= threshold) {
-                        pulled = 0f
-                        weeks++
-                    }
-                } else if (available.y > 0 || consumed.y > 0) {
-                    pulled = 0f
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                pulled = 0f
-                return Velocity.Zero
-            }
-        }
-    }
+    val eventsByDay = events.filter { it.day in first..last }.groupBy { it.day }
 
     Box(modifier) {
-        LazyColumn(Modifier.fillMaxSize().nestedScroll(pull), state = list, contentPadding = PaddingValues(bottom = 88.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 88.dp)) {
             item {
-                PageHeader(stringResource(R.string.upcoming), stringResource(R.string.upcoming_subtitle)) {
+                PageHeader(stringResource(R.string.week), stringResource(R.string.week_subtitle)) {
                     IconButton(onClick = { actions.push(Screen.Search) }) { Icon(Icons.Outlined.Search, stringResource(R.string.search)) }
                     IconButton(onClick = { actions.push(Screen.Settings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) }
                 }
@@ -120,19 +95,21 @@ fun UpcomingScreen(
                     val entries = (
                         itemsByDay[day].orEmpty().map { Entry.OfItem(it) } + eventsByDay[day].orEmpty().map { Entry.OfEvent(it) }
                         ).sortedBy { if (it is Entry.OfEvent && it.event.allDay) Long.MIN_VALUE else it.time }
-                    val drop = Modifier.itemDropTarget(onHover = { hoveredDay = if (it) day else hoveredDay.takeIf { d -> d != day } }) { id ->
+                    val past = day.isBefore(today)
+                    val drop = Modifier.itemDropTarget(onHover = { hoveredDay = if (it && !past) day else hoveredDay.takeIf { d -> d != day } }) { id ->
+                        if (past) return@itemDropTarget
                         val item = store.find(id) ?: return@itemDropTarget
                         val zone = ZoneId.systemDefault()
                         val time = Instant.ofEpochMilli(item.remindAt ?: return@itemDropTarget).atZone(zone).toLocalTime()
                         store.reschedule(id, day.atTime(time).atZone(zone).toInstant().toEpochMilli())
                     }
-                    Column(drop) {
+                    Column(drop.alpha(if (past) 0.45f else 1f)) {
                         Text(
                             buildAnnotatedString {
-                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(Format.day(context, day, today)) }
-                                if (day.isBefore(today.plusDays(7))) {
-                                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) { append(" · " + Format.dayMonth(day)) }
+                                withStyle(SpanStyle(color = if (past) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)) {
+                                    append(if (day == today) todayLabel else day.dayOfWeek.getDisplayName(TextStyle.FULL, locale))
                                 }
+                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) { append(" · " + Format.dayMonth(day)) }
                             },
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 8.dp),
@@ -169,6 +146,7 @@ fun UpcomingScreen(
                                                 onClick = { actions.open(item) },
                                                 onTimeClick = { rescheduling = item },
                                                 time = Format.time(entry.time),
+                                                done = item.done,
                                                 leading = { CheckCircle(item.done, { actions.toggle(item) }) },
                                                 modifier = Modifier
                                                     .background(if (hovered) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent),
@@ -183,16 +161,11 @@ fun UpcomingScreen(
                 }
             }
             item(key = "more") {
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp).alpha(0.5f + 0.5f * (pulled / threshold).coerceIn(0f, 1f)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(Icons.Outlined.KeyboardDoubleArrowUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        stringResource(R.string.pull_for_next_week),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Box(Modifier.fillMaxWidth().padding(top = 16.dp), contentAlignment = Alignment.Center) {
+                    OutlinedButton(onClick = { weeks++ }) {
+                        Icon(Icons.Outlined.KeyboardArrowDown, null)
+                        Text(stringResource(R.string.show_next_week), modifier = Modifier.padding(start = 8.dp))
+                    }
                 }
             }
         }

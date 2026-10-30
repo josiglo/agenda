@@ -42,26 +42,20 @@ import java.time.LocalDate
 /** Everything without a notification time: the inbox, tasks and reminders. */
 /**
  * Everything without a notification time, except what is in today's top 3.
- * Place chips filter, with none picked showing everything. Long press and
+ * One place chip is always picked: "No place" or a place. Long press and
  * drag reorders a section.
  */
 @Composable
 fun BacklogScreen(items: List<Item>, today: LocalDate, actions: Actions, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val store = remember { Store.get(context) }
-    var place by rememberSaveable { mutableStateOf<String?>(null) }
+    var place by rememberSaveable { mutableStateOf(NO_PLACE) }
     var hovered by remember { mutableStateOf<Long?>(null) }
     val epochDay = today.toEpochDay()
     val backlog = items.filter { !it.isSubtask && it.remindAt == null && !(it.topSlot != null && it.topDay == epochDay) }
     val places = backlog.mapNotNull { it.place }.distinct().sortedWith(String.CASE_INSENSITIVE_ORDER)
-    val selected = place?.takeIf { it == NO_PLACE || it in places }
-    val shown = backlog.filter {
-        when (selected) {
-            null -> true
-            NO_PLACE -> it.place == null
-            else -> it.place == selected
-        }
-    }.sortedBy { it.done }
+    val selected = place.takeIf { it in places } ?: NO_PLACE
+    val shown = backlog.filter { if (selected == NO_PLACE) it.place == null else it.place == selected }.sortedBy { it.done }
 
     LazyColumn(modifier, contentPadding = PaddingValues(bottom = 88.dp)) {
         item {
@@ -79,7 +73,7 @@ fun BacklogScreen(items: List<Item>, today: LocalDate, actions: Actions, modifie
                     (listOf(NO_PLACE) + places).forEach { p ->
                         FilterChip(
                             selected = selected == p,
-                            onClick = { place = if (selected == p) null else p },
+                            onClick = { place = p },
                             label = { Text(if (p == NO_PLACE) stringResource(R.string.no_place) else p) },
                         )
                     }

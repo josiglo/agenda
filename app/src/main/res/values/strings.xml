@@ -4,10 +4,10 @@
     <string name="today">Today</string>
     <string name="tomorrow">Tomorrow</string>
     <string name="yesterday">Yesterday</string>
-    <string name="upcoming">Upcoming</string>
-    <string name="upcoming_subtitle">The coming days. Drag items to move them.</string>
+    <string name="week">Week</string>
+    <string name="week_subtitle">This week. Drag items to move them.</string>
+    <string name="show_next_week">Show next week</string>
     <string name="nothing_planned">Nothing planned</string>
-    <string name="pull_for_next_week">Pull up for the next week</string>
     <string name="backlog">Backlog</string>
     <string name="backlog_subtitle">Everything without a time</string>
     <string name="backlog_empty">Nothing here. New items land in the inbox.</string>
@@ -116,6 +116,10 @@
     <string name="in_one_hour">In one hour</string>
     <string name="this_evening">This evening, %1$s</string>
     <string name="tomorrow_morning">Tomorrow morning, %1$s</string>
+    <string name="in_three_hours">In three hours</string>
+    <string name="tomorrow_evening">Tomorrow evening, %1$s</string>
+    <string name="saturday_morning">Saturday morning, %1$s</string>
+    <string name="monday_morning">Monday morning, %1$s</string>
     <string name="pick_date_time">Pick a day and time</string>
     <string name="time">Time</string>
     <string name="time_hint">Time, e.g. 730</string>

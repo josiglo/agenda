@@ -162,9 +162,7 @@ fun ItemRow(
         modifier
             .fillMaxWidth()
             .heightIn(min = 60.dp)
-            .clickable(onClick = onClick)
-            // Inside the click handling, so a long press starts the drag before the click sees it.
-            .let { if (dragId != null) it.itemDragSource(dragId) else it }
+            .let { if (dragId != null) it.itemDragSource(dragId, onClick) else it.clickable(onClick = onClick) }
             .padding(start = if (time != null) 16.dp else 6.dp, end = if (trailing != null) 4.dp else 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -53,7 +53,7 @@ import com.josiglo.agenda.data.Store
 import com.josiglo.agenda.time.DayClock
 import java.time.LocalDate
 
-/** A line on Today or Upcoming: an item or a calendar event, at [time]. */
+/** A line on Today or Week: an item or a calendar event, at [time]. */
 sealed interface Entry {
     val time: Long
 

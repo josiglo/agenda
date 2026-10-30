@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -51,12 +52,14 @@ import com.josiglo.agenda.data.RepeatFrom
 import com.josiglo.agenda.data.RepeatUnit
 import com.josiglo.agenda.settings.Settings
 import com.josiglo.agenda.time.parseTime
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
+import java.time.temporal.TemporalAdjusters
 
 /**
  * Shortcuts for a notification time: in one hour, this evening, tomorrow
@@ -83,15 +86,28 @@ fun WhenOptions(title: String, initial: Long?, onPicked: (Long) -> Unit, onDismi
             onDismiss = onDismiss,
         )
         else -> {
-            val now = ZonedDateTime.now(zone)
-            val evening = now.toLocalDate().atTime(preferences.evening).atZone(zone)
-            val morning = now.toLocalDate().plusDays(1).atTime(preferences.morning).atZone(zone)
+            val now = ZonedDateTime.now(zone).withSecond(0).withNano(0)
+            val today = now.toLocalDate()
+            val evening = today.atTime(preferences.evening).atZone(zone)
+            val tomorrow = today.plusDays(1)
+            val saturday = today.with(TemporalAdjusters.next(DayOfWeek.SATURDAY))
+            val monday = today.with(TemporalAdjusters.next(DayOfWeek.MONDAY))
+            val morningTime = Format.time(preferences.morning)
             val options = buildList {
                 add(stringResource(R.string.in_one_hour) to now.plusHours(1))
+                add(stringResource(R.string.in_three_hours) to now.plusHours(3))
                 if (evening.isAfter(now.plusMinutes(30))) {
                     add(stringResource(R.string.this_evening, Format.time(preferences.evening)) to evening)
                 }
-                add(stringResource(R.string.tomorrow_morning, Format.time(preferences.morning)) to morning)
+                add(stringResource(R.string.tomorrow_morning, morningTime) to tomorrow.atTime(preferences.morning).atZone(zone))
+                add(stringResource(R.string.tomorrow_evening, Format.time(preferences.evening)) to tomorrow.atTime(preferences.evening).atZone(zone))
+                // Monday to Thursday. On Friday it is tomorrow morning already.
+                if (today.dayOfWeek < DayOfWeek.FRIDAY) {
+                    add(stringResource(R.string.saturday_morning, morningTime) to saturday.atTime(preferences.morning).atZone(zone))
+                }
+                if (monday != tomorrow) {
+                    add(stringResource(R.string.monday_morning, morningTime) to monday.atTime(preferences.morning).atZone(zone))
+                }
             }
             val transparent = ListItemDefaults.colors(containerColor = Color.Transparent)
             AlertDialog(
@@ -144,6 +160,10 @@ fun DayDialog(initial: LocalDate, onPicked: (LocalDate) -> Unit, onDismiss: () -
 /** A time typed as digits: 7 is 7:00, 730 or 0730 is 7:30. */
 @Composable
 fun TimeDialog(initial: LocalTime?, onPicked: (LocalTime) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val preferences by Settings.get(context).preferences.collectAsStateWithLifecycle()
+    val presets = listOf(preferences.morning, LocalTime.NOON, LocalTime.of(15, 0), preferences.evening, LocalTime.of(21, 0))
+        .distinct().sorted()
     // Selected, so typing replaces the old time.
     var text by remember {
         val start = initial?.let { "%d%02d".format(it.hour, it.minute) }.orEmpty()
@@ -156,6 +176,7 @@ fun TimeDialog(initial: LocalTime?, onPicked: (LocalTime) -> Unit, onDismiss: ()
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.time)) },
         text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
@@ -166,6 +187,12 @@ fun TimeDialog(initial: LocalTime?, onPicked: (LocalTime) -> Unit, onDismiss: ()
                 keyboardActions = KeyboardActions(onDone = { parsed?.let(onPicked) }),
                 modifier = Modifier.focusRequester(focus),
             )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { time ->
+                    SuggestionChip(onClick = { onPicked(time) }, label = { Text(Format.time(time)) })
+                }
+            }
+            }
         },
         confirmButton = {
             TextButton(onClick = { parsed?.let(onPicked) }, enabled = parsed != null) { Text(stringResource(R.string.ok)) }
