@@ -6,6 +6,7 @@ import com.josiglo.agenda.data.Repeat
 import com.josiglo.agenda.data.RepeatFrom
 import com.josiglo.agenda.data.RepeatUnit
 import com.josiglo.agenda.settings.Preferences
+import com.josiglo.agenda.settings.Settings
 import com.josiglo.agenda.settings.ThemeMode
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,6 +29,7 @@ object BackupFormat {
             put("morning", p.morning.toString())
             put("evening", p.evening.toString())
             put("dayStart", p.dayStart.toString())
+            put("kindOrder", p.kindOrder.joinToString(",") { it.key })
         })
         put("items", JSONArray().apply {
             data.items.forEach { item ->
@@ -73,6 +75,7 @@ object BackupFormat {
                 morning = settings.time("morning") ?: defaults.morning,
                 evening = settings.time("evening") ?: defaults.evening,
                 dayStart = settings.time("dayStart") ?: defaults.dayStart,
+                kindOrder = Settings.kindOrder(settings.optString("kindOrder")),
             )
             val array = json.getJSONArray("items")
             val items = (0 until array.length()).map { i ->

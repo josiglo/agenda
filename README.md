@@ -11,25 +11,38 @@ The bottom navigation has three pages:
   their subtasks. Ticked items stay on the page, crossed out, until the day
   ends. Open items from earlier days stay at the top of the schedule with
   their date in red.
-- Upcoming: items with a notification after today, and calendar events of the
-  next two weeks, grouped by day.
-- Backlog: everything without a notification time, in three sections. The
-  inbox collects entries that aren't sorted yet, then come tasks and
-  reminders. Chips at the top filter by place.
+- Upcoming: the next seven days with their items and calendar events. Pulling
+  up past the end adds another week, as often as needed. After a long press,
+  a task or reminder can be dragged to another day and keeps its time.
+  Calendar events stay where they are.
+- Backlog: everything without a notification time that isn't in today's top
+  3, in three sections. The inbox collects entries that aren't sorted yet,
+  then come tasks and reminders. Chips at the top filter by place, and "No
+  place" shows the items without one. With no chip picked, everything shows.
+  After a long press, items can be dragged to a new place in their section.
 
-The add button opens the editor for a new task, or for a new inbox entry on
-the Backlog page. Search and Settings sit in the top bar of every page.
+Tapping the time of an item on Today or Upcoming offers in one hour, this
+evening, tomorrow morning, or a picked day and time.
+
+The add button opens the editor for a new item of the first kind in Settings,
+Order of kinds. Search and Settings sit in the top bar of every page.
 
 ## Items
 
 There are three kinds of items, picked with the chips at the top of the
-editor:
+editor. Their order is set in Settings, Order of kinds:
 
 - Inbox entries have a title and a description. Turning one into a task or a
   reminder moves it out of the inbox. The menu of an inbox entry does the same.
 - Tasks have a description, a place, subtasks, a notification and a repeat.
-  A task or one of its subtasks can go into today's top 3.
+  A task or one of its subtasks can go into today's top 3. Subtasks have all
+  fields of a task except subtasks of their own. The arrow next to a saved
+  subtask opens it.
 - Reminders have the same fields as tasks without subtasks.
+
+A new notification starts from the same choices as rescheduling. Its day and
+time then show as two buttons that change each on its own. Times are typed
+as digits everywhere: 7 is 7:00, 730 or 0730 is 7:30.
 
 Tasks and reminders are ticked off with the circle in front of them, or with
 Done on their notification. A repeating item adds its next copy when it is
@@ -49,6 +62,9 @@ items ticked off before that are deleted.
 A notification shows at the item's time, with Done and Reschedule buttons.
 Reschedule offers in one hour, this evening, tomorrow morning, or a picked
 date and time. The morning and evening times are set in the settings.
+
+The status bar shows a check mark, or a double check mark when more than one
+notification is open. Several notifications are grouped with their count.
 
 Notifications stay until Done is pressed. They are pinned, and one that is
 swiped away anyway shows again. They come back after a restart, and the alarm

@@ -22,6 +22,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import java.time.Instant
+import com.josiglo.agenda.settings.Settings
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Close
@@ -72,12 +79,11 @@ import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.temporal.ChronoUnit
 
 /**
  * Edits item [id], or a new item of [newKind] when [id] is 0. A new task
- * started from an empty top 3 slot goes into [newTopSlot].
+ * started from an empty top 3 slot goes into [newTopSlot]. Subtasks have all
+ * fields of a task except their own subtasks.
  */
 @Composable
 fun EditorScreen(
@@ -87,12 +93,15 @@ fun EditorScreen(
     today: LocalDate,
     onClose: () -> Unit,
     onDeleted: (List<Item>) -> Unit,
+    onOpenSubtask: (Long) -> Unit,
 ) {
     val context = LocalContext.current
     val store = remember { Store.get(context) }
     val original = remember(id) { store.find(id) }
     val items by store.items.collectAsStateWithLifecycle()
     val epochDay = today.toEpochDay()
+    val preferences by Settings.get(context).preferences.collectAsStateWithLifecycle()
+    val parent = original?.parentId?.let { id -> items.find { it.id == id } }
 
     var kind by remember { mutableStateOf(original?.kind ?: newKind) }
     var title by remember { mutableStateOf(original?.title.orEmpty()) }
@@ -103,14 +112,17 @@ fun EditorScreen(
     val subtasks = remember { mutableStateListOf<Item>().apply { if (original != null) addAll(store.subtasks(original.id)) } }
     val wasTop = original?.topSlot != null && original.topDay == epochDay
     var inTop by remember { mutableStateOf(wasTop || newTopSlot != null) }
-    var pickingTime by remember { mutableStateOf(false) }
+    var pickingWhen by remember { mutableStateOf(false) }
+    var pickingDay by remember { mutableStateOf(false) }
+    var pickingClock by remember { mutableStateOf(false) }
     var pickingRepeat by remember { mutableStateOf(false) }
     val titleFocus = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { if (original == null) titleFocus.requestFocus() }
 
-    fun save() {
-        val current = if (original != null) store.find(original.id) ?: return onClose() else null
+    // Writes the item and returns its ID, or null if it was deleted meanwhile.
+    fun persist(): Long? {
+        val current = if (original != null) store.find(original.id) ?: return null else null
         val base = (current ?: Item(kind = kind, title = title)).copy(
             kind = kind,
             title = title,
@@ -119,11 +131,11 @@ fun EditorScreen(
             remindAt = if (kind == Kind.INBOX) null else remindAt,
             repeat = if (kind == Kind.INBOX || remindAt == null) null else repeat,
         )
-        val keepSubtasks = if (kind == Kind.TASK) subtasks.toList() else emptyList()
+        val keepSubtasks = if (kind == Kind.TASK && parent == null) subtasks.toList() else emptyList()
         val savedId = if (current == null) {
             store.add(base, keepSubtasks.map { it.title })
         } else {
-            store.save(base, keepSubtasks)
+            store.save(base, if (parent == null) keepSubtasks else store.subtasks(current.id))
             current.id
         }
         val isTop = store.find(savedId)?.let { it.topSlot != null && it.topDay == epochDay } == true
@@ -133,6 +145,11 @@ fun EditorScreen(
         } else if ((!inTop || kind != Kind.TASK) && isTop) {
             store.clearTop(savedId)
         }
+        return savedId
+    }
+
+    fun save() {
+        persist()
         onClose()
     }
 
@@ -160,13 +177,28 @@ fun EditorScreen(
                 }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Row(
-                    Modifier.padding(horizontal = 24.dp).horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    KindChip(Kind.INBOX, kind, Icons.Outlined.Inbox, R.string.inbox) { kind = it }
-                    KindChip(Kind.TASK, kind, Icons.Outlined.TaskAlt, R.string.task) { kind = it }
-                    KindChip(Kind.REMINDER, kind, Icons.Outlined.Notifications, R.string.reminder) { kind = it }
+                if (parent != null) {
+                    Row(
+                        Modifier.padding(horizontal = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Outlined.Checklist, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.subtask_of, parent.title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                } else {
+                    Row(
+                        Modifier.padding(horizontal = 24.dp).horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        preferences.kindOrder.forEach { k ->
+                            KindChip(k, kind, KIND_ICONS.getValue(k), k.label) { kind = it }
+                        }
+                    }
                 }
                 PlainField(
                     value = title,
@@ -185,13 +217,24 @@ fun EditorScreen(
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 PlaceField(place, store.places()) { place = it }
                 if (kind != Kind.INBOX) {
-                    FieldRow(
-                        icon = Icons.Outlined.Notifications,
-                        text = remindAt?.let { Format.dateTime(context, it, today) } ?: stringResource(R.string.add_notification),
-                        muted = remindAt == null,
-                        onClick = { pickingTime = true },
-                        onClear = if (remindAt != null) ({ remindAt = null }) else null,
-                    )
+                    val at = remindAt
+                    if (at == null) {
+                        FieldRow(
+                            icon = Icons.Outlined.Notifications,
+                            text = stringResource(R.string.add_notification),
+                            muted = true,
+                            onClick = { pickingWhen = true },
+                            onClear = null,
+                        )
+                    } else {
+                        NotificationRow(
+                            at = at,
+                            today = today,
+                            onDay = { pickingDay = true },
+                            onTime = { pickingClock = true },
+                            onClear = { remindAt = null },
+                        )
+                    }
                     if (remindAt != null) {
                         FieldRow(
                             icon = Icons.Outlined.Repeat,
@@ -204,7 +247,11 @@ fun EditorScreen(
                 }
                 if (kind == Kind.TASK) {
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                    Subtasks(subtasks)
+                    if (parent == null) {
+                        Subtasks(subtasks, onOpen = { sub ->
+                            if (title.isNotBlank() && persist() != null) onOpenSubtask(sub.id)
+                        })
+                    }
                     TopToggle(
                         inTop = inTop,
                         full = !wasTop && freeSlot(items, epochDay) == null && newTopSlot == null,
@@ -217,15 +264,39 @@ fun EditorScreen(
         }
     }
 
-    if (pickingTime) {
-        DateTimePicker(
-            initial = remindAt ?: ZonedDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.HOURS).plusHours(1).toInstant().toEpochMilli(),
+    if (pickingWhen) {
+        WhenOptions(
+            title = stringResource(R.string.add_notification),
+            initial = null,
             onPicked = {
                 remindAt = it
-                pickingTime = false
+                pickingWhen = false
             },
-            onDismiss = { pickingTime = false },
+            onDismiss = { pickingWhen = false },
         )
+    }
+    val zone = ZoneId.systemDefault()
+    remindAt?.let { Instant.ofEpochMilli(it).atZone(zone) }?.let { at ->
+        if (pickingDay) {
+            DayDialog(
+                initial = at.toLocalDate(),
+                onPicked = {
+                    remindAt = it.atTime(at.toLocalTime()).atZone(zone).toInstant().toEpochMilli()
+                    pickingDay = false
+                },
+                onDismiss = { pickingDay = false },
+            )
+        }
+        if (pickingClock) {
+            TimeDialog(
+                initial = at.toLocalTime(),
+                onPicked = {
+                    remindAt = at.toLocalDate().atTime(it).atZone(zone).toInstant().toEpochMilli()
+                    pickingClock = false
+                },
+                onDismiss = { pickingClock = false },
+            )
+        }
     }
     if (pickingRepeat) {
         RepeatPicker(
@@ -328,7 +399,7 @@ private fun FieldRow(icon: ImageVector, text: String, muted: Boolean, onClick: (
 }
 
 @Composable
-private fun Subtasks(subtasks: MutableList<Item>) {
+private fun Subtasks(subtasks: MutableList<Item>, onOpen: (Item) -> Unit) {
     Row(Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Outlined.Checklist, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
@@ -356,7 +427,13 @@ private fun Subtasks(subtasks: MutableList<Item>) {
                 ),
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = { subtasks.removeAt(i) }) { Icon(Icons.Outlined.Close, stringResource(R.string.remove)) }
+            if (sub.id != 0L) {
+                IconButton(onClick = { onOpen(sub) }) {
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.open_subtask))
+                }
+            } else {
+                IconButton(onClick = { subtasks.removeAt(i) }) { Icon(Icons.Outlined.Close, stringResource(R.string.remove)) }
+            }
         }
     }
     Row(
@@ -398,5 +475,37 @@ private fun TopToggle(inTop: Boolean, full: Boolean, onChange: (Boolean) -> Unit
                 style = MaterialTheme.typography.titleSmall,
             )
         }
+    }
+}
+
+private val KIND_ICONS = mapOf(
+    Kind.INBOX to Icons.Outlined.Inbox,
+    Kind.TASK to Icons.Outlined.TaskAlt,
+    Kind.REMINDER to Icons.Outlined.Notifications,
+)
+
+/** The notification time as a day button and a time button, each changed on its own. */
+@Composable
+private fun NotificationRow(at: Long, today: LocalDate, onDay: () -> Unit, onTime: () -> Unit, onClear: () -> Unit) {
+    val context = LocalContext.current
+    val zoned = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault())
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 20.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.Notifications, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.weight(1f).padding(start = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AssistChip(
+                onClick = onDay,
+                label = { Text(Format.day(context, zoned.toLocalDate(), today) + if (zoned.toLocalDate().isAfter(today.plusDays(6))) "" else ", " + Format.dayMonth(zoned.toLocalDate())) },
+                leadingIcon = { Icon(Icons.Outlined.CalendarToday, null, Modifier.size(AssistChipDefaults.IconSize)) },
+            )
+            AssistChip(
+                onClick = onTime,
+                label = { Text(Format.time(zoned.toLocalTime())) },
+                leadingIcon = { Icon(Icons.Outlined.Schedule, null, Modifier.size(AssistChipDefaults.IconSize)) },
+            )
+        }
+        IconButton(onClick = onClear) { Icon(Icons.Outlined.Close, stringResource(R.string.clear)) }
     }
 }

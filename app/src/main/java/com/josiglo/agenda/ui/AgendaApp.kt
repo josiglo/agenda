@@ -2,7 +2,13 @@ package com.josiglo.agenda.ui
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -24,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -95,11 +102,11 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         stack = stack.dropLast(1)
     }
 
-    fun open(item: Item) = push(Screen.Edit(item.parentId ?: item.id))
+    fun open(item: Item) = push(Screen.Edit(item.id))
 
     LaunchedEffect(openItem) {
         if (openItem != null) {
-            store.find(openItem)?.let { stack = listOf(Screen.Edit(it.parentId ?: it.id)) }
+            store.find(openItem)?.let { stack = listOf(Screen.Edit(it.id)) }
             onOpenHandled()
         }
     }
@@ -117,17 +124,7 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         )
     }
 
-    // Events from today to two weeks ahead, read again when the app comes back.
-    var resumed by remember { mutableStateOf(0) }
-    LifecycleResumeEffect(Unit) {
-        resumed++
-        onPauseOrDispose {}
-    }
-    val events by produceState(emptyList<Event>(), preferences.calendars, today, resumed) {
-        value = withContext(Dispatchers.IO) {
-            Calendars.events(context, preferences.calendars, clock.start(today), clock.end(today.plusDays(UPCOMING_DAYS)))
-        }
-    }
+    val events = rememberEvents(preferences.calendars, clock.start(today), clock.end(today))
 
     when (val screen = stack.lastOrNull()) {
         is Screen.Edit -> EditorScreen(
@@ -143,6 +140,7 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
                     if (result == SnackbarResult.ActionPerformed) store.restore(gone)
                 }
             },
+            onOpenSubtask = { push(Screen.Edit(it)) },
         )
         Screen.Settings -> SettingsScreen(onBack = ::pop, onPlaces = { push(Screen.Places) })
         Screen.Places -> PlacesScreen(onBack = ::pop)
@@ -155,6 +153,15 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
     }
 
     Scaffold(
+        // A solid strip behind the status bar, so lists don't scroll through it.
+        topBar = {
+            Spacer(
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .windowInsetsTopHeight(WindowInsets.statusBars),
+            )
+        },
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach { t ->
@@ -169,7 +176,7 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                push(Screen.Edit(0, if (tab == Tab.BACKLOG) Kind.INBOX else Kind.TASK))
+                push(Screen.Edit(0, preferences.kindOrder.first()))
             }) {
                 Icon(Icons.Rounded.Add, stringResource(R.string.add))
             }
@@ -180,13 +187,26 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         val modifier = Modifier.padding(padding)
         when (tab) {
             Tab.TODAY -> TodayScreen(items, events, clock, today, actions, modifier)
-            Tab.UPCOMING -> UpcomingScreen(items, events, clock, today, actions, modifier)
-            Tab.BACKLOG -> BacklogScreen(items, actions, modifier)
+            Tab.UPCOMING -> UpcomingScreen(items, preferences.calendars, clock, today, actions, modifier)
+            Tab.BACKLOG -> BacklogScreen(items, today, actions, modifier)
         }
     }
 }
 
-const val UPCOMING_DAYS = 14L
+/** Events of [calendars] between [from] and [to], read again when the app comes back. */
+@Composable
+fun rememberEvents(calendars: Set<Long>, from: Long, to: Long): List<Event> {
+    val context = LocalContext.current
+    var resumed by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumed++
+        onPauseOrDispose {}
+    }
+    val events by produceState(emptyList<Event>(), calendars, from, to, resumed) {
+        value = withContext(Dispatchers.IO) { Calendars.events(context, calendars, from, to) }
+    }
+    return events
+}
 
 /** The current time, updated at every full minute. */
 @Composable
