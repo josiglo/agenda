@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # One grouped PR per month for each ecosystem. The patch label makes a
+  # merged Gradle update release as a patch version.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [patch]
+    groups:
+      gradle:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [patch]
+    groups:
+      actions:
+        patterns: ["*"]

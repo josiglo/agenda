@@ -1,0 +1,177 @@
+# A pull request builds the release APK, and merging it to main publishes it
+# as a GitHub release. The version bump comes from the pull request's labels:
+# "major" or "patch", minor otherwise. Run it by hand with
+# `gh workflow run release.yml -f bump=patch`.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version part to bump
+        type: choice
+        options: [minor, patch, major]
+        default: minor
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+
+# Releases run one at a time so two merges never pick the same version. A new
+# push to a pull request cancels its build that is still running.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# A pull request builds the release APK with the version its labels give and
+# keeps it as an artifact. Merging it publishes that APK without building again,
+# as long as main has exactly the code of the pull request and the version is
+# still the next one. Otherwise, and for direct pushes and manual runs, the
+# release is built here.
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Bump version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUMP_INPUT: ${{ inputs.bump }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          if [ -n "$BUMP_INPUT" ]; then
+            bump=$BUMP_INPUT
+          else
+            if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+              labels=$(jq -r '.[]' <<< "$PR_LABELS")
+            else
+              # A direct push has no pull request, so a failed lookup falls back to a minor bump.
+              pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" -q '.[0] | select(.merged_at != null)' || true)
+              [ -n "$pr" ] || pr='{}'
+              labels=$(jq -r '.labels[]?.name' <<< "$pr")
+              echo "PR_NUMBER=$(jq -r '.number // empty' <<< "$pr")" >> "$GITHUB_ENV"
+              echo "PR_HEAD_SHA=$(jq -r '.head.sha // empty' <<< "$pr")" >> "$GITHUB_ENV"
+            fi
+            if grep -qx major <<< "$labels"; then
+              bump=major
+            elif grep -qx patch <<< "$labels"; then
+              bump=patch
+            else
+              bump=minor
+            fi
+          fi
+          latest=$(gh release view --json tagName -q .tagName 2>/dev/null || echo v0.0.0)
+          if ! [[ "${latest#v}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Latest release tag must look like v1.2.3, got $latest" >&2
+            exit 1
+          fi
+          major=${BASH_REMATCH[1]} minor=${BASH_REMATCH[2]} patch=${BASH_REMATCH[3]}
+          case $bump in
+            major) major=$(( major + 1 )) minor=0 patch=0 ;;
+            minor) minor=$(( minor + 1 )) patch=0 ;;
+            patch) patch=$(( patch + 1 )) ;;
+          esac
+          version="$major.$minor.$patch"
+          echo "Version $version ($bump bump from $latest)"
+          echo "VERSION_NAME=$version" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$(( major * 1000000 + minor * 1000 + patch ))" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "APK=${GITHUB_REPOSITORY#*/}-$version.apk" >> "$GITHUB_ENV"
+
+      - name: Reuse the pull request build
+        if: github.event_name == 'push' && env.PR_HEAD_SHA != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Any lookup that fails falls back to building, so a release never depends on it.
+          if ! git fetch --quiet origin "refs/pull/$PR_NUMBER/head"; then
+            echo "Could not fetch the pull request, building again"
+            exit 0
+          fi
+          if [ "$(git rev-parse "$GITHUB_SHA^{tree}")" != "$(git rev-parse "$PR_HEAD_SHA^{tree}")" ]; then
+            echo "main differs from the pull request, building again"
+            exit 0
+          fi
+          run=$(gh run list --workflow release.yml --event pull_request --commit "$PR_HEAD_SHA" \
+            --status success --limit 1 --json databaseId -q '.[0].databaseId' || true)
+          if [ -z "$run" ]; then
+            echo "No successful build of the pull request, building again"
+            exit 0
+          fi
+          if ! gh run download "$run" --name release-apk --dir "$RUNNER_TEMP/pr"; then
+            echo "The pull request build has no APK, building again"
+            exit 0
+          fi
+          if [ ! -f "$RUNNER_TEMP/pr/$APK" ]; then
+            echo "The pull request built $(ls "$RUNNER_TEMP/pr"), not $APK, building again"
+            exit 0
+          fi
+          mv "$RUNNER_TEMP/pr/$APK" "$APK"
+          echo "Reusing $APK from run $run"
+          echo "REUSED=true" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v6
+        if: env.REUSED != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v6
+        if: env.REUSED != 'true'
+
+      - name: Decode signing key
+        if: env.REUSED != 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 secret missing, APK is signed with the debug key"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.p12"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        if: env.REUSED != 'true'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          ./gradlew assembleRelease
+          mv app/build/outputs/apk/release/app-release.apk "$APK"
+
+      - name: Keep the APK for the merge
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-apk
+          path: ${{ env.APK }}
+          retention-days: 30
+
+      - name: Publish release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="v$RELEASE_VERSION"
+          gh release create "$tag" "$APK" --target "$GITHUB_SHA" --title "$tag" --generate-notes
