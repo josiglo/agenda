@@ -26,6 +26,10 @@ import com.josiglo.agenda.settings.Settings
  */
 object Reminders {
     private const val CHANNEL = "reminders"
+    private const val GROUP = "due"
+
+    // Item IDs start at 1, so 0 is free for the summary.
+    private const val SUMMARY_ID = 0
     const val EXTRA_ITEM = "item"
 
     @Synchronized
@@ -33,15 +37,18 @@ object Reminders {
         val store = Store.get(context)
         val manager = context.getSystemService(NotificationManager::class.java)
         createChannel(context, manager)
-        val open = store.items.value.filter { it.remindAt != null && !it.done && !it.isSubtask && it.kind != Kind.INBOX }
+        val open = store.items.value.filter { it.remindAt != null && !it.done && it.kind != Kind.INBOX }
         val due = open.filter { it.remindAt!! <= now }
-        val dueIds = due.map { it.id.toInt() }.toSet()
-        manager.activeNotifications.filter { it.id !in dueIds }.forEach { manager.cancel(it.id) }
+        val many = due.size > 1
+        val keep = due.map { it.id.toInt() }.toSet() + if (many) setOf(SUMMARY_ID) else emptySet()
+        manager.activeNotifications.filter { it.id !in keep }.forEach { manager.cancel(it.id) }
         if (canPost(context)) {
             due.forEach { item ->
-                manager.notify(item.id.toInt(), build(context, item, silent = item.alertedAt == item.remindAt))
+                val parent = item.parentId?.let { store.find(it) }
+                manager.notify(item.id.toInt(), build(context, item, parent, many, silent = item.alertedAt == item.remindAt))
                 store.markAlerted(item.id, item.remindAt!!)
             }
+            if (many) manager.notify(SUMMARY_ID, summary(context, due.size))
         }
         val nextReminder = open.mapNotNull { it.remindAt }.filter { it > now }.minOrNull()
         val clock = Settings.get(context).preferences.value.clock()
@@ -78,7 +85,27 @@ object Reminders {
 
     // Pinned so it can't be swiped away on the lock screen. Where Android lets
     // it be swiped away anyway, the delete intent posts it again.
-    private fun build(context: Context, item: Item, silent: Boolean): Notification {
+    // With more than one open notification, the double check mark shows in the
+    // status bar and the summary groups them with their count.
+    private fun summary(context: Context, count: Int): Notification =
+        NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification_many)
+            .setContentTitle(context.resources.getQuantityString(R.plurals.open_reminders, count, count))
+            .setNumber(count)
+            .setGroup(GROUP)
+            .setGroupSummary(true)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    context, SUMMARY_ID, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+            .build()
+
+    private fun build(context: Context, item: Item, parent: Item?, many: Boolean, silent: Boolean): Notification {
         val id = item.id.toInt()
         val open = PendingIntent.getActivity(
             context, id,
@@ -101,9 +128,10 @@ object Reminders {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val text = listOfNotNull(item.note, item.place).joinToString(" · ").ifEmpty { null }
+        val text = listOfNotNull(parent?.title, item.note, item.place).joinToString(" · ").ifEmpty { null }
         return NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(if (many) R.drawable.ic_notification_many else R.drawable.ic_notification)
+            .setGroup(GROUP)
             .setContentTitle(item.title)
             .setContentText(text)
             .setStyle(text?.let { NotificationCompat.BigTextStyle().bigText(it) })

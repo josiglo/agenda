@@ -8,14 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -76,7 +72,7 @@ fun todayItems(items: List<Item>, clock: DayClock, today: LocalDate): List<Item>
     val end = clock.end(today)
     return items.filter { item ->
         val at = item.remindAt ?: return@filter false
-        !item.isSubtask && item.kind != Kind.INBOX &&
+        item.kind != Kind.INBOX &&
             (at in start until end || (at < start && (item.doneAt ?: Long.MAX_VALUE) >= start))
     }
 }
@@ -93,6 +89,7 @@ fun TodayScreen(
     val context = LocalContext.current
     val store = remember { Store.get(context) }
     var choosing by remember { mutableStateOf<Int?>(null) }
+    var rescheduling by remember { mutableStateOf<Item?>(null) }
     val epochDay = today.toEpochDay()
     val top = (1..3).associateWith { slot -> items.find { it.topSlot == slot && it.topDay == epochDay } }
     val topIds = top.values.mapNotNull { it?.id }.toSet()
@@ -104,7 +101,6 @@ fun TodayScreen(
         ).sortedBy { it.time }
 
     LazyColumn(modifier, contentPadding = PaddingValues(bottom = 88.dp)) {
-        item { Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars)) }
         item {
             PageHeader(stringResource(R.string.today), Format.longDate(today)) {
                 IconButton(onClick = { actions.push(Screen.Search) }) { Icon(Icons.Outlined.Search, stringResource(R.string.search)) }
@@ -144,8 +140,9 @@ fun TodayScreen(
                                 val overdue = item.remindAt!! < start
                                 ItemRow(
                                     title = item.title,
-                                    meta = itemMeta(item, items.filter { it.parentId == item.id }),
+                                    meta = itemMeta(item, items.filter { it.parentId == item.id }, parentMeta(items, item)),
                                     onClick = { actions.open(item) },
+                                    onTimeClick = { rescheduling = item },
                                     time = if (overdue) Format.day(context, clock.day(item.remindAt), today) else Format.time(item.remindAt),
                                     timeColor = if (overdue && !item.done) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                     done = item.done,
@@ -159,6 +156,17 @@ fun TodayScreen(
         }
     }
 
+    rescheduling?.let { item ->
+        WhenOptions(
+            title = item.title,
+            initial = item.remindAt,
+            onPicked = {
+                store.reschedule(item.id, it)
+                rescheduling = null
+            },
+            onDismiss = { rescheduling = null },
+        )
+    }
     choosing?.let { slot ->
         TopPicker(
             items = items,

@@ -1,9 +1,12 @@
 package com.josiglo.agenda.data
 
-enum class Kind(val key: String) {
-    INBOX("inbox"),
-    TASK("task"),
-    REMINDER("reminder");
+import androidx.annotation.StringRes
+import com.josiglo.agenda.R
+
+enum class Kind(val key: String, @StringRes val label: Int) {
+    INBOX("inbox", R.string.inbox),
+    TASK("task", R.string.task),
+    REMINDER("reminder", R.string.reminder);
 
     companion object {
         fun fromKey(key: String?): Kind? = entries.find { it.key == key }

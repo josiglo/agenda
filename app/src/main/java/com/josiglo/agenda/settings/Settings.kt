@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.StringRes
 import androidx.core.content.edit
 import com.josiglo.agenda.R
+import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.time.DayClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,8 @@ data class Preferences(
     val evening: LocalTime = LocalTime.of(19, 0),
     /** When the top 3 and finished items reset. */
     val dayStart: LocalTime = LocalTime.MIDNIGHT,
+    /** Order of the kind chips in the editor. The first is the kind of new items. */
+    val kindOrder: List<Kind> = Kind.entries,
 ) {
     fun clock(): DayClock = DayClock(ZoneId.systemDefault(), dayStart)
 }
@@ -47,6 +50,7 @@ class Settings private constructor(context: Context) {
             putInt(KEY_MORNING, new.morning.toSecondOfDay() / 60)
             putInt(KEY_EVENING, new.evening.toSecondOfDay() / 60)
             putInt(KEY_DAY_START, new.dayStart.toSecondOfDay() / 60)
+            putString(KEY_KIND_ORDER, new.kindOrder.joinToString(",") { it.key })
         }
         _preferences.value = new
     }
@@ -61,6 +65,7 @@ class Settings private constructor(context: Context) {
             morning = time(KEY_MORNING) ?: defaults.morning,
             evening = time(KEY_EVENING) ?: defaults.evening,
             dayStart = time(KEY_DAY_START) ?: defaults.dayStart,
+            kindOrder = kindOrder(prefs.getString(KEY_KIND_ORDER, null)),
         )
     }
 
@@ -74,6 +79,13 @@ class Settings private constructor(context: Context) {
         private const val KEY_MORNING = "morning"
         private const val KEY_EVENING = "evening"
         private const val KEY_DAY_START = "day_start"
+        private const val KEY_KIND_ORDER = "kind_order"
+
+        /** Reads a comma separated order, adding kinds it lacks at the end. */
+        fun kindOrder(text: String?): List<Kind> {
+            val listed = text.orEmpty().split(",").mapNotNull { Kind.fromKey(it.trim()) }.distinct()
+            return listed + Kind.entries.filter { it !in listed }
+        }
 
         @Volatile
         private var instance: Settings? = null

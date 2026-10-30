@@ -5,8 +5,9 @@
     <string name="tomorrow">Tomorrow</string>
     <string name="yesterday">Yesterday</string>
     <string name="upcoming">Upcoming</string>
-    <string name="upcoming_subtitle">Next two weeks</string>
-    <string name="nothing_upcoming">Nothing planned yet</string>
+    <string name="upcoming_subtitle">The coming days. Drag items to move them.</string>
+    <string name="nothing_planned">Nothing planned</string>
+    <string name="pull_for_next_week">Pull up for the next week</string>
     <string name="backlog">Backlog</string>
     <string name="backlog_subtitle">Everything without a time</string>
     <string name="backlog_empty">Nothing here. New items land in the inbox.</string>
@@ -15,7 +16,7 @@
     <string name="task">Task</string>
     <string name="reminders">Reminders</string>
     <string name="reminder">Reminder</string>
-    <string name="all_places">All places</string>
+    <string name="no_place">No place</string>
     <string name="make_task">Make it a task</string>
     <string name="make_reminder">Make it a reminder</string>
     <string name="top_3">Top 3</string>
@@ -47,7 +48,6 @@
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
-    <string name="next">Next</string>
     <string name="done">Done</string>
     <string name="mark_done">Mark as done</string>
     <string name="mark_open">Mark as not done</string>
@@ -60,6 +60,8 @@
     <string name="subtasks">Subtasks</string>
     <string name="subtask">Subtask</string>
     <string name="add_subtask">Add subtask</string>
+    <string name="open_subtask">Open subtask</string>
+    <string name="subtask_of">Subtask of %1$s</string>
 
     <string name="repeat">Repeat</string>
     <string name="every">Every</string>
@@ -106,11 +108,17 @@
     </plurals>
 
     <string name="channel_reminders">Reminders</string>
+    <plurals name="open_reminders">
+        <item quantity="one">%1$d open reminder</item>
+        <item quantity="other">%1$d open reminders</item>
+    </plurals>
     <string name="reschedule">Reschedule</string>
     <string name="in_one_hour">In one hour</string>
     <string name="this_evening">This evening, %1$s</string>
     <string name="tomorrow_morning">Tomorrow morning, %1$s</string>
-    <string name="pick_date_time">Pick a date and time</string>
+    <string name="pick_date_time">Pick a day and time</string>
+    <string name="time">Time</string>
+    <string name="time_hint">Time, e.g. 730</string>
 
     <string name="calendars_on_today">Calendars on Today</string>
     <string name="calendar_access">Show calendar events</string>
@@ -129,6 +137,10 @@
     <string name="day_start">New day starts at</string>
     <string name="day_start_summary">%1$s. The top 3 and finished items reset then.</string>
     <string name="places">Places</string>
+    <string name="items">Items</string>
+    <string name="kind_order">Order of kinds</string>
+    <string name="kind_order_summary">The order of the chips in the editor. New items start as the first one.</string>
+    <string name="move_up">Move up</string>
     <string name="places_none">No places yet. Set one on an item.</string>
     <string name="rename_place">Rename place</string>
     <string name="remove_place">Remove from all items</string>

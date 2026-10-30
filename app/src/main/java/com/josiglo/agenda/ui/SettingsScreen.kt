@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -62,6 +63,7 @@ import com.josiglo.agenda.R
 import com.josiglo.agenda.backup.Backup
 import com.josiglo.agenda.calendar.CalendarInfo
 import com.josiglo.agenda.calendar.Calendars
+import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
 import com.josiglo.agenda.notify.Reminders
 import com.josiglo.agenda.settings.Settings
@@ -94,6 +96,7 @@ fun SettingsScreen(onBack: () -> Unit, onPlaces: () -> Unit) {
     val canPost = remember(checks) { Reminders.canPost(context) }
     val canExact = remember(checks) { Reminders.canScheduleExact(context) }
     var editingTime by remember { mutableStateOf<TimeSetting?>(null) }
+    var orderingKinds by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -173,8 +176,14 @@ fun SettingsScreen(onBack: () -> Unit, onPlaces: () -> Unit) {
                 )
             }
 
-            SectionLabel(stringResource(R.string.places))
+            SectionLabel(stringResource(R.string.items))
             Group {
+                SettingRow(
+                    stringResource(R.string.kind_order),
+                    preferences.kindOrder.map { stringResource(it.label) }.joinToString(),
+                    onClick = { orderingKinds = true },
+                )
+                GroupDivider()
                 val places = Store.get(context).places()
                 SettingRow(
                     stringResource(R.string.places),
@@ -217,7 +226,7 @@ fun SettingsScreen(onBack: () -> Unit, onPlaces: () -> Unit) {
     }
 
     editingTime?.let { which ->
-        TimeOfDayPicker(
+        TimeDialog(
             initial = which.get(preferences),
             onPicked = { time ->
                 settings.update { which.set(it, time) }
@@ -228,6 +237,48 @@ fun SettingsScreen(onBack: () -> Unit, onPlaces: () -> Unit) {
             onDismiss = { editingTime = null },
         )
     }
+    if (orderingKinds) {
+        KindOrderDialog(
+            initial = preferences.kindOrder,
+            onPicked = { order ->
+                settings.update { it.copy(kindOrder = order) }
+                orderingKinds = false
+            },
+            onDismiss = { orderingKinds = false },
+        )
+    }
+}
+
+/** Moves kinds up one place at a time. The first one is the kind of new items. */
+@Composable
+private fun KindOrderDialog(initial: List<Kind>, onPicked: (List<Kind>) -> Unit, onDismiss: () -> Unit) {
+    var order by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.kind_order)) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.kind_order_summary),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                order.forEachIndexed { i, kind ->
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${i + 1}.  " + stringResource(kind.label), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        if (i > 0) {
+                            IconButton(onClick = {
+                                order = order.toMutableList().apply { add(i - 1, removeAt(i)) }
+                            }) { Icon(Icons.Outlined.ArrowUpward, stringResource(R.string.move_up)) }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onPicked(order) }) { Text(stringResource(R.string.save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 private enum class TimeSetting {

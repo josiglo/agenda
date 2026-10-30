@@ -89,12 +89,14 @@ class Store private constructor(private val context: Context) {
         db.transaction {
             if (done) {
                 var nextId: Long? = null
-                if (item.repeat != null && item.remindAt != null && !item.isSubtask) {
+                if (item.repeat != null && item.remindAt != null) {
                     val next = Repeats.next(item.remindAt, item.repeat, now, ZoneId.systemDefault())
                     nextId = insertItem(item.copy(id = 0, remindAt = next, doneAt = null, topSlot = null, topDay = null,
                         alertedAt = null, nextId = null, position = nextPosition(), created = now))
                     subtasks(item.id).forEach { sub ->
+                        // Subtask notifications move along with the task.
                         insertItem(sub.copy(id = 0, parentId = nextId, doneAt = null, topSlot = null, topDay = null,
+                            remindAt = sub.remindAt?.let { it + next - item.remindAt }, alertedAt = null, nextId = null,
                             position = nextPosition(), created = now))
                     }
                 }
@@ -106,6 +108,22 @@ class Store private constructor(private val context: Context) {
                     if (copy != null && !copy.done) deleteWithSubtasks(next)
                 }
                 replaceItem(item.copy(doneAt = null, nextId = null))
+            }
+        }
+        changed()
+    }
+
+    /**
+     * Puts the items of [order] in that order. Only the places they hold
+     * among themselves change, so other items keep theirs.
+     */
+    @Synchronized
+    fun reorder(order: List<Item>) {
+        val places = order.map { it.position }.sorted()
+        db.transaction {
+            order.zip(places).forEach { (item, place) ->
+                update(TABLE, ContentValues().apply { put(Columns.POSITION, place) },
+                    "${Items.ID} = ?", arrayOf(item.id.toString()))
             }
         }
         changed()
@@ -235,6 +253,7 @@ class Store private constructor(private val context: Context) {
             place = item.place?.trim()?.ifEmpty { null },
         )
         return when {
+            base.parentId != null && base.kind != Kind.TASK -> clean(base.copy(kind = Kind.TASK))
             base.kind == Kind.INBOX -> base.copy(remindAt = null, repeat = null)
             base.remindAt == null -> base.copy(repeat = null)
             else -> base

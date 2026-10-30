@@ -136,6 +136,10 @@ fun itemMeta(item: Item, subtasks: List<Item>, extra: List<Pair<ImageVector, Str
     }
 }
 
+/** The parent task of a subtask, shown under its title. */
+fun parentMeta(items: List<Item>, item: Item): List<Pair<ImageVector, String>> =
+    item.parentId?.let { id -> items.find { it.id == id } }?.let { listOf(Icons.Outlined.Checklist to it.title) }.orEmpty()
+
 /**
  * One row: an optional time column, a leading slot that is always 40 dp wide
  * so titles line up, then the title with its details.
@@ -145,22 +149,37 @@ fun ItemRow(
     title: String,
     meta: List<Pair<ImageVector, String>>,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     time: String? = null,
     timeColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     done: Boolean = false,
     leading: @Composable () -> Unit,
+    onTimeClick: (() -> Unit)? = null,
+    dragId: Long? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .heightIn(min = 60.dp)
             .clickable(onClick = onClick)
+            // Inside the click handling, so a long press starts the drag before the click sees it.
+            .let { if (dragId != null) it.itemDragSource(dragId) else it }
             .padding(start = if (time != null) 16.dp else 6.dp, end = if (trailing != null) 4.dp else 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (time != null) {
-            Text(time, style = MaterialTheme.typography.bodyMedium, color = timeColor, modifier = Modifier.width(64.dp), maxLines = 1, softWrap = false)
+            Text(
+                time,
+                style = MaterialTheme.typography.bodyMedium,
+                color = timeColor,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier
+                    .width(64.dp)
+                    .let { if (onTimeClick != null) it.clip(RoundedCornerShape(8.dp)).clickable(onClick = onTimeClick) else it }
+                    .padding(vertical = 8.dp),
+            )
         }
         Box(Modifier.width(40.dp), contentAlignment = Alignment.Center) { leading() }
         Column(Modifier.weight(1f).padding(start = 8.dp)) {
