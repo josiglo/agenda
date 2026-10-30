@@ -1,0 +1,174 @@
+<resources>
+    <string name="app_name">Agenda</string>
+
+    <string name="today">Today</string>
+    <string name="tomorrow">Tomorrow</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="upcoming">Upcoming</string>
+    <string name="upcoming_subtitle">Next two weeks</string>
+    <string name="nothing_upcoming">Nothing planned yet</string>
+    <string name="backlog">Backlog</string>
+    <string name="backlog_subtitle">Everything without a time</string>
+    <string name="backlog_empty">Nothing here. New items land in the inbox.</string>
+    <string name="inbox">Inbox</string>
+    <string name="tasks">Tasks</string>
+    <string name="task">Task</string>
+    <string name="reminders">Reminders</string>
+    <string name="reminder">Reminder</string>
+    <string name="all_places">All places</string>
+    <string name="make_task">Make it a task</string>
+    <string name="make_reminder">Make it a reminder</string>
+    <string name="top_3">Top 3</string>
+    <string name="schedule">Schedule</string>
+    <string name="choose_task">Choose a task</string>
+    <string name="choose_other_task">Choose another task</string>
+    <string name="remove_from_top">Remove from top 3</string>
+    <string name="new_task">New task</string>
+    <string name="add_to_top_3">Add to today\'s top 3</string>
+    <string name="in_top_3">In today\'s top 3</string>
+    <string name="top_3_full">Today\'s top 3 is full</string>
+    <string name="all_day">All day</string>
+    <string name="no_title">(No title)</string>
+    <string name="note">Note</string>
+    <string name="date_time">%1$s, %2$s</string>
+
+    <string name="add">Add</string>
+    <string name="search">Search</string>
+    <string name="no_results">Nothing found</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="more">More</string>
+    <string name="close">Close</string>
+    <string name="clear">Clear</string>
+    <string name="remove">Remove</string>
+    <string name="delete">Delete</string>
+    <string name="deleted">Deleted</string>
+    <string name="undo">Undo</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="next">Next</string>
+    <string name="done">Done</string>
+    <string name="mark_done">Mark as done</string>
+    <string name="mark_open">Mark as not done</string>
+
+    <string name="title">Title</string>
+    <string name="description">Description</string>
+    <string name="place">Place</string>
+    <string name="add_notification">Add notification</string>
+    <string name="does_not_repeat">Does not repeat</string>
+    <string name="subtasks">Subtasks</string>
+    <string name="subtask">Subtask</string>
+    <string name="add_subtask">Add subtask</string>
+
+    <string name="repeat">Repeat</string>
+    <string name="every">Every</string>
+    <string name="repeat_counted_from">Count the next date from</string>
+    <string name="from_schedule">The schedule</string>
+    <string name="from_done">When done</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekly">Weekly</string>
+    <string name="repeat_monthly">Monthly</string>
+    <string name="repeat_yearly">Yearly</string>
+    <string name="repeat_every">Every %1$s</string>
+    <string name="repeat_after_done">%1$s after done</string>
+    <plurals name="days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="weeks">
+        <item quantity="one">%1$d week</item>
+        <item quantity="other">%1$d weeks</item>
+    </plurals>
+    <plurals name="months">
+        <item quantity="one">%1$d month</item>
+        <item quantity="other">%1$d months</item>
+    </plurals>
+    <plurals name="years">
+        <item quantity="one">%1$d year</item>
+        <item quantity="other">%1$d years</item>
+    </plurals>
+    <plurals name="day_units">
+        <item quantity="one">day</item>
+        <item quantity="other">days</item>
+    </plurals>
+    <plurals name="week_units">
+        <item quantity="one">week</item>
+        <item quantity="other">weeks</item>
+    </plurals>
+    <plurals name="month_units">
+        <item quantity="one">month</item>
+        <item quantity="other">months</item>
+    </plurals>
+    <plurals name="year_units">
+        <item quantity="one">year</item>
+        <item quantity="other">years</item>
+    </plurals>
+
+    <string name="channel_reminders">Reminders</string>
+    <string name="reschedule">Reschedule</string>
+    <string name="in_one_hour">In one hour</string>
+    <string name="this_evening">This evening, %1$s</string>
+    <string name="tomorrow_morning">Tomorrow morning, %1$s</string>
+    <string name="pick_date_time">Pick a date and time</string>
+
+    <string name="calendars_on_today">Calendars on Today</string>
+    <string name="calendar_access">Show calendar events</string>
+    <string name="calendar_access_summary">Allow Agenda to read your calendars</string>
+    <string name="no_calendars">No calendars on this phone</string>
+    <string name="notifications">Notifications</string>
+    <string name="notification_access">Allow notifications</string>
+    <string name="notification_access_summary">Reminders can\'t show without them</string>
+    <string name="exact_alarms">Exact alarms</string>
+    <string name="exact_alarms_allowed">Allowed, so notifications show on the minute</string>
+    <string name="exact_alarms_denied">Not allowed, so notifications may come late. Tap to allow.</string>
+    <string name="morning">Morning</string>
+    <string name="morning_summary">%1$s. Used by reschedule and for dates without a time.</string>
+    <string name="evening">Evening</string>
+    <string name="evening_summary">%1$s. Used by reschedule.</string>
+    <string name="day_start">New day starts at</string>
+    <string name="day_start_summary">%1$s. The top 3 and finished items reset then.</string>
+    <string name="places">Places</string>
+    <string name="places_none">No places yet. Set one on an item.</string>
+    <string name="rename_place">Rename place</string>
+    <string name="remove_place">Remove from all items</string>
+    <plurals name="items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <string name="look">Look</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="wallpaper_colors">Wallpaper colors</string>
+    <string name="wallpaper_colors_summary">Use the wallpaper colors instead of blue</string>
+    <string name="about">About</string>
+    <string name="version">Version</string>
+
+    <string name="backup">Backup</string>
+    <string name="backup_folder">Backup folder</string>
+    <string name="backup_folder_none">Pick a folder to back up to every day</string>
+    <string name="backup_folder_never">%1$s, no backup yet</string>
+    <string name="backup_folder_last">%1$s, last backup %2$s</string>
+    <string name="backup_change_folder">Change folder</string>
+    <string name="backup_stop">Stop backups</string>
+    <string name="backup_now">Back up now</string>
+    <plurals name="backup_now_summary">
+        <item quantity="one">The folder keeps the newest backup</item>
+        <item quantity="other">The folder keeps the newest %1$d backups</item>
+    </plurals>
+    <string name="backup_done">Backed up</string>
+    <string name="backup_failed">Backup failed</string>
+    <string name="backup_restore">Restore</string>
+    <string name="backup_restore_summary">Replace all items and settings with a backup</string>
+    <string name="backup_restore_title">Restore this backup?</string>
+    <string name="backup_restore_message">All items and settings are replaced by the ones in the backup.</string>
+    <string name="backup_restored">Restored</string>
+    <string name="backup_restore_failed">This file isn\'t a backup or can\'t be read</string>
+
+    <string name="permission_read_label">read Agenda items</string>
+    <string name="permission_read_description">Read your tasks, reminders and inbox in Agenda.</string>
+    <string name="permission_write_label">add Agenda items</string>
+    <string name="permission_write_description">Add tasks, reminders and inbox entries to Agenda.</string>
+</resources>
