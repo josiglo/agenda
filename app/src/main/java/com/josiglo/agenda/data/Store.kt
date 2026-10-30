@@ -16,6 +16,7 @@ import com.josiglo.agenda.time.Repeats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.time.Instant
 import java.time.ZoneId
 
 /**
@@ -189,12 +190,29 @@ class Store private constructor(private val context: Context) {
         changed()
     }
 
-    /** Deletes items ticked off before today and empties top 3 slots of past days. */
+    /**
+     * Deletes items ticked off before today, empties top 3 slots of past
+     * days, and moves open items with a notification on a past day to today
+     * at the same time. Items repeating on a schedule stay on their date, so
+     * the schedule doesn't drift.
+     */
     @Synchronized
     fun purge(clock: DayClock) {
         val today = clock.today()
         val start = clock.start(today).toString()
+        val zone = clock.zone
+        val missed = _items.value.filter {
+            !it.done && it.kind != Kind.INBOX && it.remindAt != null && it.remindAt < clock.start(today) &&
+                it.repeat?.from != RepeatFrom.SCHEDULE
+        }
         db.transaction {
+            missed.forEach { item ->
+                val time = Instant.ofEpochMilli(item.remindAt!!).atZone(zone).toLocalTime()
+                var at = today.atTime(time).atZone(zone).toInstant().toEpochMilli()
+                // With a late day start, an early time belongs to the next calendar day.
+                if (at < clock.start(today)) at = today.plusDays(1).atTime(time).atZone(zone).toInstant().toEpochMilli()
+                replaceItem(item.copy(remindAt = at, alertedAt = null))
+            }
             delete(TABLE, "${Items.PARENT_ID} IN (SELECT ${Items.ID} FROM $TABLE WHERE ${Items.DONE_AT} < ?)", arrayOf(start))
             delete(TABLE, "${Items.DONE_AT} < ?", arrayOf(start))
             update(TABLE, ContentValues().apply {

@@ -4,6 +4,12 @@ import android.content.ClipData
 import android.view.View
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.draganddrop.dragAndDropSource
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ripple
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -19,6 +25,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.DragAndDropTransferData
@@ -27,10 +37,52 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.scrollBy
 import kotlinx.coroutines.delay
 
-/** Starts dragging item [id] after a long press. Drags stay inside the app. */
+/**
+ * Opens on tap and starts dragging item [id] after a long press. Both go
+ * through one gesture detector, because a separate click handler and drag
+ * detector take each other's taps. Drags stay inside the app.
+ */
 @OptIn(ExperimentalFoundationApi::class)
-fun Modifier.itemDragSource(id: Long): Modifier = dragAndDropSource { _ ->
-    DragAndDropTransferData(ClipData.newPlainText(DRAG_LABEL, id.toString()), localState = id, flags = View.DRAG_FLAG_OPAQUE)
+@Composable
+fun Modifier.itemDragSource(id: Long, onClick: () -> Unit): Modifier {
+    val click by rememberUpdatedState(onClick)
+    val shadow = rememberGraphicsLayer()
+    val interactions = remember { MutableInteractionSource() }
+    val box = MaterialTheme.colorScheme.surfaceContainerHigh
+    val corner = 20.dp
+    return this
+        .indication(interactions, ripple())
+        .drawWithContent {
+            shadow.record { this@drawWithContent.drawContent() }
+            drawLayer(shadow)
+        }
+        .dragAndDropSource(
+            // The row itself has no background, so the shadow gets the rounded box of its group.
+            drawDragDecoration = {
+                drawRoundRect(box, cornerRadius = CornerRadius(corner.toPx()))
+                drawLayer(shadow)
+            },
+            block = {
+                detectTapGestures(
+                    onPress = { offset ->
+                        val press = PressInteraction.Press(offset)
+                        interactions.emit(press)
+                        val released = tryAwaitRelease()
+                        interactions.emit(if (released) PressInteraction.Release(press) else PressInteraction.Cancel(press))
+                    },
+                    onTap = { click() },
+                    onLongPress = {
+                        startTransfer(
+                            DragAndDropTransferData(
+                                ClipData.newPlainText(DRAG_LABEL, id.toString()),
+                                localState = id,
+                                flags = View.DRAG_FLAG_OPAQUE,
+                            ),
+                        )
+                    },
+                )
+            },
+        )
 }
 
 /**
