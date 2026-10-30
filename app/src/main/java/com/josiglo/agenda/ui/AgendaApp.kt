@@ -66,7 +66,7 @@ sealed interface Screen {
 
 enum class Tab(val label: Int, val icon: ImageVector, val selectedIcon: ImageVector) {
     TODAY(R.string.today, Icons.Outlined.Today, Icons.Filled.Today),
-    UPCOMING(R.string.upcoming, Icons.Outlined.DateRange, Icons.Filled.DateRange),
+    WEEK(R.string.week, Icons.Outlined.DateRange, Icons.Filled.DateRange),
     BACKLOG(R.string.backlog, Icons.Outlined.Inbox, Icons.Filled.Inbox),
 }
 
@@ -187,7 +187,7 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         val modifier = Modifier.padding(padding)
         when (tab) {
             Tab.TODAY -> TodayScreen(items, events, clock, today, actions, modifier)
-            Tab.UPCOMING -> UpcomingScreen(items, preferences.calendars, clock, today, actions, modifier)
+            Tab.WEEK -> WeekScreen(items, preferences.calendars, clock, today, actions, modifier)
             Tab.BACKLOG -> BacklogScreen(items, today, actions, modifier)
         }
     }

@@ -57,7 +57,7 @@ import java.time.temporal.TemporalAdjusters
  * a long press and keep their time. Calendar events stay where they are.
  */
 @Composable
-fun UpcomingScreen(
+fun WeekScreen(
     items: List<Item>,
     calendars: Set<Long>,
     clock: DayClock,
@@ -85,7 +85,7 @@ fun UpcomingScreen(
     Box(modifier) {
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 88.dp)) {
             item {
-                PageHeader(stringResource(R.string.upcoming), stringResource(R.string.upcoming_subtitle)) {
+                PageHeader(stringResource(R.string.week), stringResource(R.string.week_subtitle)) {
                     IconButton(onClick = { actions.push(Screen.Search) }) { Icon(Icons.Outlined.Search, stringResource(R.string.search)) }
                     IconButton(onClick = { actions.push(Screen.Settings) }) { Icon(Icons.Outlined.Settings, stringResource(R.string.settings)) }
                 }

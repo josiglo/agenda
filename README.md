@@ -11,7 +11,7 @@ The bottom navigation has three pages:
   their subtasks. Ticked items stay on the page, crossed out, until the day
   ends. Open items from earlier days stay at the top of the schedule with
   their date in red.
-- Upcoming: this week from Monday to Sunday with its items and calendar
+- Week: this week from Monday to Sunday with its items and calendar
   events. Past days are dimmed. Show next week at the end adds another week,
   as often as needed. After a long press, a task or reminder can be dragged
   to today or a later day and keeps its time. Calendar events stay where they
@@ -22,7 +22,7 @@ The bottom navigation has three pages:
   always picked: "No place" for the items without one, or a place.
   After a long press, items can be dragged to a new place in their section.
 
-Tapping the time of an item on Today or Upcoming offers shortcuts such as in
+Tapping the time of an item on Today or Week offers shortcuts such as in
 one hour, this evening, tomorrow morning or Monday morning, or a picked day
 and time. Typed times come with buttons for common times of day.
 
@@ -80,7 +80,7 @@ asking. On Android 12 the settings link to the permission.
 ## Calendars
 
 After allowing calendar access in the settings, the calendars switched on
-there show their events on Today and Upcoming. Tapping an event opens it in
+there show their events on Today and Week. Tapping an event opens it in
 the calendar app.
 
 ## Backup

@@ -21,7 +21,7 @@ enum class ThemeMode(@StringRes val label: Int) {
 data class Preferences(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val wallpaperColors: Boolean = false,
-    /** IDs of the calendars shown on Today and Upcoming. */
+    /** IDs of the calendars shown on Today and Week. */
     val calendars: Set<Long> = emptySet(),
     val morning: LocalTime = LocalTime.of(8, 0),
     val evening: LocalTime = LocalTime.of(19, 0),
