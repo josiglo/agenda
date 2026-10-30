@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -49,7 +50,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
-import java.util.Locale
 
 /**
  * This week from Monday to Sunday, with past days dimmed. A button at the
@@ -71,6 +71,8 @@ fun UpcomingScreen(
     var hoveredDay by remember { mutableStateOf<LocalDate?>(null) }
     var rescheduling by remember { mutableStateOf<Item?>(null) }
     val list = rememberLazyListState()
+    val todayLabel = stringResource(R.string.today)
+    val locale = LocalConfiguration.current.locales[0]
     val first = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val last = first.plusDays(7L * weeks - 1)
     val events = rememberEvents(calendars, clock.start(first), clock.end(last))
@@ -105,7 +107,7 @@ fun UpcomingScreen(
                         Text(
                             buildAnnotatedString {
                                 withStyle(SpanStyle(color = if (past) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)) {
-                                    append(if (day == today) context.getString(R.string.today) else day.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()))
+                                    append(if (day == today) todayLabel else day.dayOfWeek.getDisplayName(TextStyle.FULL, locale))
                                 }
                                 withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) { append(" · " + Format.dayMonth(day)) }
                             },
