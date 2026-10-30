@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Notifications on the minute. USE_EXACT_ALARM is granted on install from Android 13. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <!-- Sets the alarm and the daily backup again after a restart. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
+    <permission
+        android:name="com.josiglo.agenda.permission.READ_ITEMS"
+        android:description="@string/permission_read_description"
+        android:label="@string/permission_read_label"
+        android:protectionLevel="dangerous" />
+
+    <permission
+        android:name="com.josiglo.agenda.permission.WRITE_ITEMS"
+        android:description="@string/permission_write_description"
+        android:label="@string/permission_write_label"
+        android:protectionLevel="dangerous" />
+
+    <application
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Agenda">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".notify.RescheduleActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Agenda.Dialog" />
+
+        <receiver
+            android:name=".notify.ActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".notify.SystemReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".backup.BackupJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <provider
+            android:name=".data.AgendaProvider"
+            android:authorities="com.josiglo.agenda.api"
+            android:exported="true"
+            android:readPermission="com.josiglo.agenda.permission.READ_ITEMS"
+            android:writePermission="com.josiglo.agenda.permission.WRITE_ITEMS" />
+    </application>
+</manifest>
