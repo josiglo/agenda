@@ -1,7 +1,6 @@
 package com.josiglo.agenda.backup
 
 import com.josiglo.agenda.data.Item
-import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Repeat
 import com.josiglo.agenda.data.RepeatFrom
 import com.josiglo.agenda.data.RepeatUnit
@@ -27,12 +26,12 @@ class BackupFormatTest {
             ),
             listOf(
                 Item(
-                    id = 1, kind = Kind.TASK, title = "Water plants", note = "Balcony too", place = "Home", position = 0,
+                    id = 1, title = "Water plants", note = "Balcony too", place = "Home", position = 0,
                     remindAt = 1_800_000_000_000, repeat = Repeat(4, RepeatUnit.DAY, RepeatFrom.DONE),
-                    topSlot = 2, topDay = 20_756, alertedAt = 1_800_000_000_000, created = 1_790_000_000_000,
+                    alertedAt = 1_800_000_000_000, created = 1_790_000_000_000,
                 ),
-                Item(id = 2, kind = Kind.TASK, title = "Fill can", parentId = 1, position = 1, doneAt = 1_800_000_100_000),
-                Item(id = 3, kind = Kind.INBOX, title = "Balcony solar", position = 2, nextId = null),
+                Item(id = 2, title = "Fill can", position = 1, doneAt = 1_800_000_100_000, nextId = 4),
+                Item(id = 3, title = "Balcony solar", position = 2),
             ),
         )
         assertEquals(data, BackupFormat.decode(BackupFormat.encode(data)))
@@ -43,7 +42,7 @@ class BackupFormatTest {
         val text = """{"version": 1, "settings": {}, "items": [{"id": 1, "title": "x"}]}"""
         val decoded = BackupFormat.decode(text)
         assertEquals(Preferences(), decoded.preferences)
-        assertEquals(Kind.INBOX, decoded.items.single().kind)
+        assertEquals("x", decoded.items.single().title)
     }
 
     @Test
@@ -51,5 +50,15 @@ class BackupFormatTest {
         assertThrows(IllegalArgumentException::class.java) { BackupFormat.decode("not json") }
         assertThrows(IllegalArgumentException::class.java) { BackupFormat.decode("""{"name": "x"}""") }
         assertThrows(IllegalArgumentException::class.java) { BackupFormat.decode("""{"version": 1, "items": []}""") }
+    }
+
+    @Test
+    fun oldBackupsWithKindsAndSubtasksBecomeReminders() {
+        val text = """{"version": 1, "settings": {"kindOrder": "task,inbox,reminder"}, "items": [
+            {"id": 1, "kind": "task", "title": "Proposal", "topSlot": 2, "topDay": 20756},
+            {"id": 2, "kind": "task", "title": "Pricing", "parentId": 1}
+        ]}"""
+        val items = BackupFormat.decode(text).items
+        assertEquals(listOf("Proposal", "Pricing"), items.map { it.title })
     }
 }

@@ -20,13 +20,12 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * All items. The app UI, the notifications and the content provider all write
- * through this class, so these rules hold for every caller:
- * - Inbox items have no notification time and don't repeat.
+ * All reminders. The app UI, the notifications and the content provider all
+ * write through this class, so these rules hold for every caller:
  * - Ticking off a repeating item adds its next copy right away. The ticked
  *   item stays until the day ends.
- * - Items ticked off before today are deleted by [purge].
- * - A top 3 slot holds one item per day.
+ * - Items ticked off before today are deleted by [purge], and open items
+ *   with a notification on a past day move to today.
  */
 class Store private constructor(private val context: Context) {
 
@@ -36,49 +35,21 @@ class Store private constructor(private val context: Context) {
 
     fun find(id: Long): Item? = _items.value.find { it.id == id }
 
-    fun subtasks(parentId: Long): List<Item> = _items.value.filter { it.parentId == parentId }
-
-    /** Adds [item] with new subtasks titled [subtasks] and returns its ID. */
+    /** Adds [item] and returns its ID. */
     @Synchronized
-    fun add(item: Item, subtasks: List<String> = emptyList()): Long {
-        var id = 0L
-        db.transaction {
-            id = insertItem(clean(item).copy(id = 0, position = nextPosition(), created = System.currentTimeMillis()))
-            subtasks.filter { it.isNotBlank() }.forEach { title ->
-                insertItem(Item(kind = Kind.TASK, title = title.trim(), parentId = id, position = nextPosition(),
-                    created = System.currentTimeMillis()))
-            }
-        }
+    fun add(item: Item): Long {
+        val id = insertItem(clean(item).copy(id = 0, position = nextPosition(), created = System.currentTimeMillis()))
         changed()
         return id
     }
 
-    /**
-     * Writes [item] and makes [subtasks] its subtasks. Subtasks with ID 0 are
-     * added, and subtasks missing from the list are deleted.
-     */
+    /** Writes the editable fields of [item]. */
     @Synchronized
-    fun save(item: Item, subtasks: List<Item>) {
+    fun save(item: Item) {
         val old = find(item.id) ?: return
         var new = clean(item)
         if (new.remindAt != old.remindAt) new = new.copy(alertedAt = null)
-        db.transaction {
-            replaceItem(new)
-            val keep = subtasks.filter { it.id != 0L }.map { it.id }.toSet()
-            subtasks(item.id).filter { it.id !in keep }.forEach { delete(TABLE, "${Items.ID} = ?", arrayOf(it.id.toString())) }
-            subtasks.forEach { sub ->
-                val title = sub.title.trim()
-                if (title.isEmpty()) {
-                    if (sub.id != 0L) delete(TABLE, "${Items.ID} = ?", arrayOf(sub.id.toString()))
-                } else if (sub.id == 0L) {
-                    insertItem(sub.copy(kind = Kind.TASK, title = title, parentId = item.id, position = nextPosition(),
-                        created = System.currentTimeMillis()))
-                } else {
-                    val stored = find(sub.id) ?: return@forEach
-                    replaceItem(stored.copy(title = title, doneAt = sub.doneAt))
-                }
-            }
-        }
+        replaceItem(new)
         changed()
     }
 
@@ -89,24 +60,19 @@ class Store private constructor(private val context: Context) {
         if (item.done == done) return
         db.transaction {
             if (done) {
-                var nextId: Long? = null
-                if (item.repeat != null && item.remindAt != null) {
+                val nextId = if (item.repeat != null && item.remindAt != null) {
                     val next = Repeats.next(item.remindAt, item.repeat, now, ZoneId.systemDefault())
-                    nextId = insertItem(item.copy(id = 0, remindAt = next, doneAt = null, topSlot = null, topDay = null,
-                        alertedAt = null, nextId = null, position = nextPosition(), created = now))
-                    subtasks(item.id).forEach { sub ->
-                        // Subtask notifications move along with the task.
-                        insertItem(sub.copy(id = 0, parentId = nextId, doneAt = null, topSlot = null, topDay = null,
-                            remindAt = sub.remindAt?.let { it + next - item.remindAt }, alertedAt = null, nextId = null,
-                            position = nextPosition(), created = now))
-                    }
+                    insertItem(item.copy(id = 0, remindAt = next, doneAt = null, alertedAt = null, nextId = null,
+                        position = nextPosition(), created = now))
+                } else {
+                    null
                 }
                 replaceItem(item.copy(doneAt = now, nextId = nextId))
             } else {
                 // Undo takes back the next copy, unless it was worked on already.
                 item.nextId?.let { next ->
                     val copy = find(next)
-                    if (copy != null && !copy.done) deleteWithSubtasks(next)
+                    if (copy != null && !copy.done) delete(TABLE, "${Items.ID} = ?", arrayOf(next.toString()))
                 }
                 replaceItem(item.copy(doneAt = null, nextId = null))
             }
@@ -134,7 +100,7 @@ class Store private constructor(private val context: Context) {
     @Synchronized
     fun reschedule(id: Long, at: Long) {
         val item = find(id) ?: return
-        replaceItem(clean(item.copy(remindAt = at, alertedAt = null, kind = if (item.kind == Kind.INBOX) Kind.REMINDER else item.kind)))
+        replaceItem(clean(item.copy(remindAt = at, alertedAt = null)))
         changed()
     }
 
@@ -147,78 +113,42 @@ class Store private constructor(private val context: Context) {
         _items.value = load()
     }
 
-    /** Deletes [id] and its subtasks and returns them for undo. */
+    /** Deletes [id] and returns it for undo. */
     @Synchronized
-    fun delete(id: Long): List<Item> {
-        val gone = listOfNotNull(find(id)) + subtasks(id)
-        db.transaction { deleteWithSubtasks(id) }
+    fun delete(id: Long): Item? {
+        val gone = find(id)
+        db.delete(TABLE, "${Items.ID} = ?", arrayOf(id.toString()))
         changed()
         return gone
     }
 
-    /** Writes [items] back exactly as they were, for undo. */
+    /** Writes [item] back exactly as it was, for undo. */
     @Synchronized
-    fun restore(items: List<Item>) {
-        db.transaction { items.forEach { replaceItem(it) } }
-        changed()
-    }
-
-    /** Puts [id] into [slot] of the top 3 of [day], in place of what was there. */
-    @Synchronized
-    fun setTop(id: Long, slot: Int, day: Long) {
-        require(slot in 1..3) { "slot must be 1 to 3" }
-        db.transaction {
-            update(TABLE, ContentValues().apply {
-                putNull(Columns.TOP_SLOT)
-                putNull(Columns.TOP_DAY)
-            }, "(${Columns.TOP_SLOT} = ? AND ${Columns.TOP_DAY} = ?) OR ${Items.ID} = ?",
-                arrayOf(slot.toString(), day.toString(), id.toString()))
-            update(TABLE, ContentValues().apply {
-                put(Columns.TOP_SLOT, slot)
-                put(Columns.TOP_DAY, day)
-            }, "${Items.ID} = ?", arrayOf(id.toString()))
-        }
-        changed()
-    }
-
-    @Synchronized
-    fun clearTop(id: Long) {
-        db.update(TABLE, ContentValues().apply {
-            putNull(Columns.TOP_SLOT)
-            putNull(Columns.TOP_DAY)
-        }, "${Items.ID} = ?", arrayOf(id.toString()))
+    fun restore(item: Item) {
+        replaceItem(item)
         changed()
     }
 
     /**
-     * Deletes items ticked off before today, empties top 3 slots of past
-     * days, and moves open items with a notification on a past day to today
-     * at the same time. Items repeating on a schedule stay on their date, so
-     * the schedule doesn't drift.
+     * Deletes items ticked off before today and moves open items with a
+     * notification on a past day to today at the same time, so nothing stays
+     * behind on a day that is over.
      */
     @Synchronized
     fun purge(clock: DayClock) {
         val today = clock.today()
-        val start = clock.start(today).toString()
+        val start = clock.start(today)
         val zone = clock.zone
-        val missed = _items.value.filter {
-            !it.done && it.kind != Kind.INBOX && it.remindAt != null && it.remindAt < clock.start(today) &&
-                it.repeat?.from != RepeatFrom.SCHEDULE
-        }
+        val missed = _items.value.filter { !it.done && it.remindAt != null && it.remindAt < start }
         db.transaction {
             missed.forEach { item ->
                 val time = Instant.ofEpochMilli(item.remindAt!!).atZone(zone).toLocalTime()
                 var at = today.atTime(time).atZone(zone).toInstant().toEpochMilli()
                 // With a late day start, an early time belongs to the next calendar day.
-                if (at < clock.start(today)) at = today.plusDays(1).atTime(time).atZone(zone).toInstant().toEpochMilli()
+                if (at < start) at = today.plusDays(1).atTime(time).atZone(zone).toInstant().toEpochMilli()
                 replaceItem(item.copy(remindAt = at, alertedAt = null))
             }
-            delete(TABLE, "${Items.PARENT_ID} IN (SELECT ${Items.ID} FROM $TABLE WHERE ${Items.DONE_AT} < ?)", arrayOf(start))
-            delete(TABLE, "${Items.DONE_AT} < ?", arrayOf(start))
-            update(TABLE, ContentValues().apply {
-                putNull(Columns.TOP_SLOT)
-                putNull(Columns.TOP_DAY)
-            }, "${Columns.TOP_DAY} < ?", arrayOf(today.toEpochDay().toString()))
+            delete(TABLE, "${Items.DONE_AT} < ?", arrayOf(start.toString()))
         }
         changed()
     }
@@ -270,16 +200,7 @@ class Store private constructor(private val context: Context) {
             note = item.note?.trim()?.ifEmpty { null },
             place = item.place?.trim()?.ifEmpty { null },
         )
-        return when {
-            base.parentId != null && base.kind != Kind.TASK -> clean(base.copy(kind = Kind.TASK))
-            base.kind == Kind.INBOX -> base.copy(remindAt = null, repeat = null)
-            base.remindAt == null -> base.copy(repeat = null)
-            else -> base
-        }
-    }
-
-    private fun deleteWithSubtasks(id: Long) {
-        db.delete(TABLE, "${Items.ID} = ? OR ${Items.PARENT_ID} = ?", arrayOf(id.toString(), id.toString()))
+        return if (base.remindAt == null) base.copy(repeat = null) else base
     }
 
     private fun insertItem(item: Item): Long = db.insertOrThrow(TABLE, null, values(item).apply { remove(Items.ID) })
@@ -290,19 +211,15 @@ class Store private constructor(private val context: Context) {
 
     private fun values(item: Item) = ContentValues().apply {
         put(Items.ID, item.id)
-        put(Items.KIND, item.kind.key)
         put(Items.TITLE, item.title)
         put(Items.NOTE, item.note)
         put(Items.PLACE, item.place)
-        put(Items.PARENT_ID, item.parentId)
         put(Columns.POSITION, item.position)
         put(Items.REMIND_AT, item.remindAt)
         put(Columns.REPEAT_EVERY, item.repeat?.every)
         put(Columns.REPEAT_UNIT, item.repeat?.unit?.key)
         put(Columns.REPEAT_FROM, item.repeat?.from?.key)
         put(Items.DONE_AT, item.doneAt)
-        put(Columns.TOP_SLOT, item.topSlot)
-        put(Columns.TOP_DAY, item.topDay)
         put(Columns.ALERTED_AT, item.alertedAt)
         put(Columns.NEXT_ID, item.nextId)
         put(Columns.CREATED, item.created)
@@ -320,25 +237,21 @@ class Store private constructor(private val context: Context) {
     private fun load(): List<Item> = db.query(TABLE, COLUMNS.toTypedArray(), null, null, null, null, ORDER).use { c ->
         buildList {
             while (c.moveToNext()) {
-                val unit = RepeatUnit.fromKey(c.getString(9))
-                val from = RepeatFrom.fromKey(c.getString(10))
+                val unit = RepeatUnit.fromKey(c.getString(7))
+                val from = RepeatFrom.fromKey(c.getString(8))
                 add(
                     Item(
                         id = c.getLong(0),
-                        kind = Kind.fromKey(c.getString(1)) ?: Kind.INBOX,
-                        title = c.getString(2),
-                        note = c.getString(3),
-                        place = c.getString(4),
-                        parentId = c.longOrNull(5),
-                        position = c.getLong(6),
-                        remindAt = c.longOrNull(7),
-                        repeat = if (unit != null && from != null && c.getInt(8) >= 1) Repeat(c.getInt(8), unit, from) else null,
-                        doneAt = c.longOrNull(11),
-                        topSlot = c.longOrNull(12)?.toInt(),
-                        topDay = c.longOrNull(13),
-                        alertedAt = c.longOrNull(14),
-                        nextId = c.longOrNull(15),
-                        created = c.getLong(16),
+                        title = c.getString(1),
+                        note = c.getString(2),
+                        place = c.getString(3),
+                        position = c.getLong(4),
+                        remindAt = c.longOrNull(5),
+                        repeat = if (unit != null && from != null && c.getInt(6) >= 1) Repeat(c.getInt(6), unit, from) else null,
+                        doneAt = c.longOrNull(9),
+                        alertedAt = c.longOrNull(10),
+                        nextId = c.longOrNull(11),
+                        created = c.getLong(12),
                     )
                 )
             }
@@ -347,25 +260,35 @@ class Store private constructor(private val context: Context) {
 
     private fun Cursor.longOrNull(i: Int): Long? = if (isNull(i)) null else getLong(i)
 
-    private class Helper(context: Context) : SQLiteOpenHelper(context, "agenda.db", null, 1) {
-        override fun onCreate(db: SQLiteDatabase) {
+    private class Helper(context: Context) : SQLiteOpenHelper(context, "agenda.db", null, 2) {
+        override fun onCreate(db: SQLiteDatabase) = createTable(db, TABLE)
+
+        // Version 1 had inbox entries, tasks with subtasks and a top 3. All of
+        // them become plain reminders, and subtasks stand on their own.
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            if (oldVersion < 2) {
+                createTable(db, "items_v2")
+                val columns = COLUMNS.joinToString()
+                db.execSQL("INSERT INTO items_v2 ($columns) SELECT $columns FROM $TABLE")
+                db.execSQL("DROP TABLE $TABLE")
+                db.execSQL("ALTER TABLE items_v2 RENAME TO $TABLE")
+            }
+        }
+
+        private fun createTable(db: SQLiteDatabase, name: String) {
             db.execSQL(
                 """
-                CREATE TABLE $TABLE (
+                CREATE TABLE $name (
                     ${Items.ID} INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ${Items.KIND} TEXT NOT NULL,
                     ${Items.TITLE} TEXT NOT NULL,
                     ${Items.NOTE} TEXT,
                     ${Items.PLACE} TEXT,
-                    ${Items.PARENT_ID} INTEGER,
                     ${Columns.POSITION} INTEGER NOT NULL DEFAULT 0,
                     ${Items.REMIND_AT} INTEGER,
                     ${Columns.REPEAT_EVERY} INTEGER,
                     ${Columns.REPEAT_UNIT} TEXT,
                     ${Columns.REPEAT_FROM} TEXT,
                     ${Items.DONE_AT} INTEGER,
-                    ${Columns.TOP_SLOT} INTEGER,
-                    ${Columns.TOP_DAY} INTEGER,
                     ${Columns.ALERTED_AT} INTEGER,
                     ${Columns.NEXT_ID} INTEGER,
                     ${Columns.CREATED} INTEGER NOT NULL DEFAULT 0
@@ -373,8 +296,6 @@ class Store private constructor(private val context: Context) {
                 """.trimIndent()
             )
         }
-
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
     }
 
     // Columns the content provider doesn't expose.
@@ -383,8 +304,6 @@ class Store private constructor(private val context: Context) {
         const val REPEAT_EVERY = "repeat_every"
         const val REPEAT_UNIT = "repeat_unit"
         const val REPEAT_FROM = "repeat_from"
-        const val TOP_SLOT = "top_slot"
-        const val TOP_DAY = "top_day"
         const val ALERTED_AT = "alerted_at"
         const val NEXT_ID = "next_id"
         const val CREATED = "created"
@@ -393,16 +312,13 @@ class Store private constructor(private val context: Context) {
     companion object {
         private const val TABLE = "items"
 
-
         private val COLUMNS = listOf(
-            Items.ID, Items.KIND, Items.TITLE, Items.NOTE, Items.PLACE, Items.PARENT_ID, Columns.POSITION,
-            Items.REMIND_AT, Columns.REPEAT_EVERY, Columns.REPEAT_UNIT, Columns.REPEAT_FROM, Items.DONE_AT,
-            Columns.TOP_SLOT, Columns.TOP_DAY, Columns.ALERTED_AT, Columns.NEXT_ID, Columns.CREATED,
+            Items.ID, Items.TITLE, Items.NOTE, Items.PLACE, Columns.POSITION, Items.REMIND_AT,
+            Columns.REPEAT_EVERY, Columns.REPEAT_UNIT, Columns.REPEAT_FROM, Items.DONE_AT,
+            Columns.ALERTED_AT, Columns.NEXT_ID, Columns.CREATED,
         )
 
-        private val PUBLIC_COLUMNS = listOf(
-            Items.ID, Items.KIND, Items.TITLE, Items.NOTE, Items.PLACE, Items.PARENT_ID, Items.REMIND_AT, Items.DONE_AT,
-        )
+        private val PUBLIC_COLUMNS = listOf(Items.ID, Items.TITLE, Items.NOTE, Items.PLACE, Items.REMIND_AT, Items.DONE_AT)
 
         private const val ORDER = Columns.POSITION
 

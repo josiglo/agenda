@@ -56,7 +56,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,48 +69,34 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.josiglo.agenda.R
 import com.josiglo.agenda.data.Item
-import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
 import java.time.LocalDate
 import java.time.ZoneId
 
-/**
- * Edits item [id], or a new item of [newKind] when [id] is 0. A new task
- * started from an empty top 3 slot goes into [newTopSlot]. Subtasks have all
- * fields of a task except their own subtasks.
- */
+/** Edits item [id], or a new reminder starting at [newRemindAt] when [id] is 0. */
 @Composable
 fun EditorScreen(
     id: Long,
-    newKind: Kind,
-    newTopSlot: Int?,
+    newRemindAt: Long?,
     today: LocalDate,
     onClose: () -> Unit,
-    onDeleted: (List<Item>) -> Unit,
-    onOpenSubtask: (Long) -> Unit,
+    onDeleted: (Item) -> Unit,
 ) {
     val context = LocalContext.current
     val store = remember { Store.get(context) }
     val original = remember(id) { store.find(id) }
-    val items by store.items.collectAsStateWithLifecycle()
-    val epochDay = today.toEpochDay()
-    val preferences by Settings.get(context).preferences.collectAsStateWithLifecycle()
-    val parent = original?.parentId?.let { id -> items.find { it.id == id } }
 
-    var kind by remember { mutableStateOf(original?.kind ?: newKind) }
     var title by remember { mutableStateOf(original?.title.orEmpty()) }
     var note by remember { mutableStateOf(original?.note.orEmpty()) }
     var place by remember { mutableStateOf(original?.place.orEmpty()) }
-    var remindAt by remember { mutableStateOf(original?.remindAt) }
+    var remindAt by remember { mutableStateOf(original?.remindAt ?: newRemindAt) }
     var repeat by remember { mutableStateOf(original?.repeat) }
-    val subtasks = remember { mutableStateListOf<Item>().apply { if (original != null) addAll(store.subtasks(original.id)) } }
-    val wasTop = original?.topSlot != null && original.topDay == epochDay
-    var inTop by remember { mutableStateOf(wasTop || newTopSlot != null) }
     var pickingWhen by remember { mutableStateOf(false) }
     var pickingDay by remember { mutableStateOf(false) }
     var pickingClock by remember { mutableStateOf(false) }
@@ -120,36 +105,19 @@ fun EditorScreen(
 
     LaunchedEffect(Unit) { if (original == null) titleFocus.requestFocus() }
 
-    // Writes the item and returns its ID, or null if it was deleted meanwhile.
-    fun persist(): Long? {
-        val current = if (original != null) store.find(original.id) ?: return null else null
-        val base = (current ?: Item(kind = kind, title = title)).copy(
-            kind = kind,
+    fun save() {
+        val current = original?.let { store.find(it.id) }
+        val base = (current ?: Item(title = title)).copy(
             title = title,
             note = note,
             place = place,
-            remindAt = if (kind == Kind.INBOX) null else remindAt,
-            repeat = if (kind == Kind.INBOX || remindAt == null) null else repeat,
+            remindAt = remindAt,
+            repeat = if (remindAt == null) null else repeat,
         )
-        val keepSubtasks = if (kind == Kind.TASK && parent == null) subtasks.toList() else emptyList()
-        val savedId = if (current == null) {
-            store.add(base, keepSubtasks.map { it.title })
-        } else {
-            store.save(base, if (parent == null) keepSubtasks else store.subtasks(current.id))
-            current.id
+        when {
+            current != null -> store.save(base)
+            original == null -> store.add(base)
         }
-        val isTop = store.find(savedId)?.let { it.topSlot != null && it.topDay == epochDay } == true
-        if (kind == Kind.TASK && inTop && !isTop) {
-            val slot = newTopSlot?.takeIf { current == null } ?: freeSlot(store.items.value, epochDay)
-            if (slot != null) store.setTop(savedId, slot, epochDay)
-        } else if ((!inTop || kind != Kind.TASK) && isTop) {
-            store.clearTop(savedId)
-        }
-        return savedId
-    }
-
-    fun save() {
-        persist()
         onClose()
     }
 
@@ -168,7 +136,7 @@ fun EditorScreen(
                 IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, stringResource(R.string.close)) }
                 Spacer(Modifier.weight(1f))
                 if (original != null) {
-                    IconButton(onClick = { onDeleted(store.delete(original.id)) }) {
+                    IconButton(onClick = { store.delete(original.id)?.let(onDeleted) }) {
                         Icon(Icons.Outlined.Delete, stringResource(R.string.delete))
                     }
                 }
@@ -177,29 +145,6 @@ fun EditorScreen(
                 }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                if (parent != null) {
-                    Row(
-                        Modifier.padding(horizontal = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Outlined.Checklist, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            stringResource(R.string.subtask_of, parent.title),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
-                } else {
-                    Row(
-                        Modifier.padding(horizontal = 24.dp).horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        preferences.kindOrder.forEach { k ->
-                            KindChip(k, kind, KIND_ICONS.getValue(k), k.label) { kind = it }
-                        }
-                    }
-                }
                 PlainField(
                     value = title,
                     onValueChange = { title = it },
@@ -216,46 +161,29 @@ fun EditorScreen(
                 )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
                 PlaceField(place, store.places()) { place = it }
-                if (kind != Kind.INBOX) {
-                    val at = remindAt
-                    if (at == null) {
-                        FieldRow(
-                            icon = Icons.Outlined.Notifications,
-                            text = stringResource(R.string.add_notification),
-                            muted = true,
-                            onClick = { pickingWhen = true },
-                            onClear = null,
-                        )
-                    } else {
-                        NotificationRow(
-                            at = at,
-                            today = today,
-                            onDay = { pickingDay = true },
-                            onTime = { pickingClock = true },
-                            onClear = { remindAt = null },
-                        )
-                    }
-                    if (remindAt != null) {
-                        FieldRow(
-                            icon = Icons.Outlined.Repeat,
-                            text = repeat?.let { Format.repeat(context, it) } ?: stringResource(R.string.does_not_repeat),
-                            muted = repeat == null,
-                            onClick = { pickingRepeat = true },
-                            onClear = if (repeat != null) ({ repeat = null }) else null,
-                        )
-                    }
-                }
-                if (kind == Kind.TASK) {
-                    HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                    if (parent == null) {
-                        Subtasks(subtasks, onOpen = { sub ->
-                            if (title.isNotBlank() && persist() != null) onOpenSubtask(sub.id)
-                        })
-                    }
-                    TopToggle(
-                        inTop = inTop,
-                        full = !wasTop && freeSlot(items, epochDay) == null && newTopSlot == null,
-                        onChange = { inTop = it },
+                val at = remindAt
+                if (at == null) {
+                    FieldRow(
+                        icon = Icons.Outlined.Notifications,
+                        text = stringResource(R.string.add_notification),
+                        muted = true,
+                        onClick = { pickingWhen = true },
+                        onClear = null,
+                    )
+                } else {
+                    NotificationRow(
+                        at = at,
+                        today = today,
+                        onDay = { pickingDay = true },
+                        onTime = { pickingClock = true },
+                        onClear = { remindAt = null },
+                    )
+                    FieldRow(
+                        icon = Icons.Outlined.Repeat,
+                        text = repeat?.let { Format.repeat(context, it) } ?: stringResource(R.string.does_not_repeat),
+                        muted = repeat == null,
+                        onClick = { pickingRepeat = true },
+                        onClear = if (repeat != null) ({ repeat = null }) else null,
                     )
                 }
                 Spacer(Modifier.heightIn(min = 24.dp))
@@ -308,19 +236,6 @@ fun EditorScreen(
             onDismiss = { pickingRepeat = false },
         )
     }
-}
-
-fun freeSlot(items: List<Item>, epochDay: Long): Int? =
-    (1..3).firstOrNull { slot -> items.none { it.topSlot == slot && it.topDay == epochDay } }
-
-@Composable
-private fun KindChip(value: Kind, selected: Kind, icon: ImageVector, label: Int, onSelect: (Kind) -> Unit) {
-    FilterChip(
-        selected = value == selected,
-        onClick = { onSelect(value) },
-        label = { Text(stringResource(label)) },
-        leadingIcon = { Icon(icon, null, Modifier.size(FilterChipDefaults.IconSize)) },
-    )
 }
 
 @Composable
@@ -397,92 +312,6 @@ private fun FieldRow(icon: ImageVector, text: String, muted: Boolean, onClick: (
         }
     }
 }
-
-@Composable
-private fun Subtasks(subtasks: MutableList<Item>, onOpen: (Item) -> Unit) {
-    Row(Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.Checklist, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            stringResource(R.string.subtasks) + if (subtasks.isNotEmpty()) "  ${subtasks.count { it.done }}/${subtasks.size}" else "",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(start = 16.dp),
-        )
-    }
-    subtasks.forEachIndexed { i, sub ->
-        Row(Modifier.padding(start = 48.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            CheckCircle(sub.done, {
-                subtasks[i] = sub.copy(doneAt = if (sub.done) null else System.currentTimeMillis())
-            })
-            TextField(
-                value = sub.title,
-                onValueChange = { subtasks[i] = sub.copy(title = it) },
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.subtask)) },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-                modifier = Modifier.weight(1f),
-            )
-            if (sub.id != 0L) {
-                IconButton(onClick = { onOpen(sub) }) {
-                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.open_subtask))
-                }
-            } else {
-                IconButton(onClick = { subtasks.removeAt(i) }) { Icon(Icons.Outlined.Close, stringResource(R.string.remove)) }
-            }
-        }
-    }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable { subtasks.add(Item(kind = Kind.TASK, title = "")) }
-            .padding(start = 56.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Outlined.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            stringResource(R.string.add_subtask),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 20.dp),
-        )
-    }
-}
-
-@Composable
-private fun TopToggle(inTop: Boolean, full: Boolean, onChange: (Boolean) -> Unit) {
-    Surface(
-        onClick = { onChange(!inTop) },
-        enabled = inTop || !full,
-        shape = RoundedCornerShape(16.dp),
-        color = if (inTop) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (inTop) Icons.Rounded.Star else Icons.Outlined.StarOutline, null)
-            Spacer(Modifier.width(14.dp))
-            Text(
-                stringResource(
-                    when {
-                        inTop -> R.string.in_top_3
-                        full -> R.string.top_3_full
-                        else -> R.string.add_to_top_3
-                    },
-                ),
-                style = MaterialTheme.typography.titleSmall,
-            )
-        }
-    }
-}
-
-private val KIND_ICONS = mapOf(
-    Kind.INBOX to Icons.Outlined.Inbox,
-    Kind.TASK to Icons.Outlined.TaskAlt,
-    Kind.REMINDER to Icons.Outlined.Notifications,
-)
 
 /** The notification time as a day button and a time button, each changed on its own. */
 @Composable

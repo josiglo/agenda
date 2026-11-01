@@ -16,12 +16,11 @@ import java.time.ZonedDateTime
  * Lets other apps, such as Quick Add, read items and add new ones. See
  * [AgendaContract].
  *
- * - query: items, optionally filtered, for example `kind = 'task'`.
- * - insert: adds an item. Needs [Items.TITLE]. [Items.KIND] defaults to
- *   inbox. The notification time comes from [Items.REMIND_AT], or from
- *   [Items.DATE] and [Items.TIME], or is now with [Items.NOTIFY_NOW]. An
- *   inbox item with a time becomes a reminder, since the inbox holds only
- *   items without one.
+ * - query: items, optionally filtered, for example `remind_at IS NULL`.
+ * - insert: adds a reminder. Needs [Items.TITLE]. The notification time
+ *   comes from [Items.REMIND_AT], or from [Items.DATE] and [Items.TIME], or
+ *   is now with [Items.NOTIFY_NOW]. Without any of them the reminder goes to
+ *   the backlog. A "kind" value from older callers is ignored.
  */
 class AgendaProvider : ContentProvider() {
 
@@ -51,17 +50,12 @@ class AgendaProvider : ContentProvider() {
         require(uri == AgendaContract.ITEMS_URI) { "Insert into ${AgendaContract.ITEMS_URI}, not $uri" }
         val title = values?.getAsString(Items.TITLE)
         require(!title.isNullOrBlank()) { "${Items.TITLE} is required" }
-        val kind = values.getAsString(Items.KIND)?.let {
-            requireNotNull(Kind.fromKey(it)) { "${Items.KIND} must be one of ${Kind.entries.joinToString { k -> k.key }}" }
-        } ?: Kind.INBOX
-        val remindAt = remindAt(values)
         val id = store.add(
             Item(
-                kind = if (kind == Kind.INBOX && remindAt != null) Kind.REMINDER else kind,
                 title = title,
                 note = values.getAsString(Items.NOTE),
                 place = values.getAsString(Items.PLACE),
-                remindAt = remindAt,
+                remindAt = remindAt(values),
             ),
         )
         return ContentUris.withAppendedId(AgendaContract.ITEMS_URI, id)

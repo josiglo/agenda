@@ -18,8 +18,6 @@ object AgendaContract {
     object Items {
         const val ID = "_id"
 
-        /** "inbox", "task" or "reminder". */
-        const val KIND = "kind"
         const val TITLE = "title"
 
         /** The description, or null. */
@@ -27,9 +25,6 @@ object AgendaContract {
 
         /** Free text such as "Home", or null. */
         const val PLACE = "place"
-
-        /** The ID of the task a subtask belongs to, or null. Read only. */
-        const val PARENT_ID = "parent_id"
 
         /** Epoch milliseconds of the notification, or null. */
         const val REMIND_AT = "remind_at"

@@ -1,66 +1,58 @@
 # Agenda
 
-Android app for tasks, reminders and ideas that haven't found their place yet.
-Nothing leaves the phone.
+Android app for reminders, with or without a time. Nothing leaves the phone.
 
 The bottom navigation has three pages:
 
-- Today: the top 3 of the day, then a schedule with everything that has a
-  notification today and the calendar events of the day, sorted by time.
-  Empty top 3 slots read "Choose a task" and open a list of open tasks and
-  their subtasks. Ticked items stay on the page, crossed out, until the day
-  ends. Open items from earlier days stay at the top of the schedule with
-  their date in red.
-- Week: this week from Monday to Sunday with its items and calendar
-  events. Past days are dimmed. Show next week at the end adds another week,
-  as often as needed. After a long press, a task or reminder can be dragged
-  to today or a later day and keeps its time. Calendar events stay where they
-  are.
-- Backlog: everything without a notification time that isn't in today's top
-  3, in three sections. The inbox collects entries that aren't sorted yet,
-  then come tasks and reminders. Chips at the top filter by place. One is
-  always picked: "No place" for the items without one, or a place.
-  After a long press, items can be dragged to a new place in their section.
+- Today: everything with a notification today and the calendar events of the
+  day, sorted by time. Ticked reminders stay on the page, crossed out, until
+  the day ends.
+- Week: one week from Monday to Sunday with its reminders and calendar
+  events, and the dates of the week under the title. Swiping sideways shows
+  the next or previous week, and the calendar button goes back to this week.
+  Past days are dimmed. Every day from today on has a button that adds a
+  reminder on that day. After a long press, a reminder can be dragged to
+  today or a later day and keeps its time. Holding a drag at the left or
+  right edge turns to the next or previous week. Calendar events stay where
+  they are.
+- Backlog: reminders without a time, then the ones ticked off today. Chips at
+  the top filter by place. One is always picked: "No place" for the
+  reminders without one, or a place. After a long press, open reminders can
+  be dragged to a new place in the list.
 
-Tapping the time of an item on Today or Week offers shortcuts such as in
+Tapping the time of a reminder on Today or Week offers shortcuts such as in
 one hour, this evening, tomorrow morning or Monday morning, or a picked day
 and time. Typed times come with buttons for common times of day.
 
-The add button opens the editor for a new item of the first kind in Settings,
-Order of kinds. Search and Settings sit in the top bar of every page.
+The add button opens the editor for a new reminder. Search and Settings sit
+in the top bar of every page.
 
-## Items
+## Reminders
 
-There are three kinds of items, picked with the chips at the top of the
-editor. Their order is set in Settings, Order of kinds:
-
-- Inbox entries have a title and a description. Turning one into a task or a
-  reminder moves it out of the inbox. The menu of an inbox entry does the same.
-- Tasks have a description, a place, subtasks, a notification and a repeat.
-  A task or one of its subtasks can go into today's top 3. Subtasks have all
-  fields of a task except subtasks of their own. The arrow next to a saved
-  subtask opens it.
-- Reminders have the same fields as tasks without subtasks.
+A reminder has a title, a description, a place, a notification and a
+repeat. Without a notification it waits in the backlog.
 
 A new notification starts from the same choices as rescheduling. Its day and
 time then show as two buttons that change each on its own. Times are typed
 as digits everywhere: 7 is 7:00, 730 or 0730 is 7:30.
 
-Tasks and reminders are ticked off with the circle in front of them, or with
-Done on their notification. A repeating item adds its next copy when it is
+Reminders are ticked off with the circle in front of them, or with Done on
+their notification. A repeating reminder adds its next copy when it is
 ticked off. The next date counts either from the schedule (every Monday,
 monthly on the 1st) or from the day it was done (4 days after done).
 
 Places are free text. Settings, Places renames, merges or removes them.
 
+Earlier versions had inbox entries, tasks with subtasks and a top 3. On
+update, all of them become reminders, and subtasks become reminders of
+their own.
+
 ## The day
 
 The day starts at midnight, or at the time set in Settings, New day starts
-at. Then the top 3 empties, unfinished top 3 items go back to their list, and
-items ticked off before that are deleted. Open tasks and reminders with a
-notification on a past day move to the new day at the same time and notify
-again. Items repeating on a schedule stay on their date, shown as overdue on
-Today, so the schedule doesn't drift.
+at. Then reminders ticked off before that are deleted, and open reminders
+with a notification on a past day move to the new day at the same time and
+notify again. This includes repeating reminders.
 
 ## Notifications
 
@@ -103,23 +95,21 @@ content provider.
 | Column | Type | Meaning |
 | --- | --- | --- |
 | `_id` | long | Item ID |
-| `kind` | string | `inbox`, `task` or `reminder` |
 | `title` | string | Title |
 | `note` | string or null | Description |
 | `place` | string or null | Free text such as `Home` |
-| `parent_id` | long or null | The task a subtask belongs to. Read only. |
 | `remind_at` | long or null | Epoch milliseconds of the notification |
 | `done_at` | long or null | Epoch milliseconds when ticked off. Read only. |
 
 Operations:
 
-- `query` returns all items. Selections work, for example `kind = 'task'`.
-- `insert` adds an item. `title` is required. `kind` defaults to `inbox`.
-  The notification time comes from `remind_at`, or from `date` (`2026-10-30`)
-  and `time` (`07:30`), or is now when `notify_now` is 1. A date without a
-  time takes the morning time from the settings. A time without a date is
-  today, or tomorrow once that time has passed. An inbox entry with a time
-  becomes a reminder.
+- `query` returns all reminders. Selections work, for example `remind_at IS NULL`.
+- `insert` adds a reminder. `title` is required. The notification time comes
+  from `remind_at`, or from `date` (`2026-10-30`) and `time` (`07:30`), or is
+  now when `notify_now` is 1. A date without a time takes the morning time
+  from the settings. A time without a date is today, or tomorrow once that
+  time has passed. Without any of them the reminder goes to the backlog. A
+  `kind` value from older callers is ignored.
 
 Calling apps need a `<queries>` entry to see the provider on Android 11 and newer:
 

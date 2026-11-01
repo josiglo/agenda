@@ -3,7 +3,6 @@ package com.josiglo.agenda.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,12 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,27 +30,26 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.josiglo.agenda.R
 import com.josiglo.agenda.data.Item
-import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
-import java.time.LocalDate
 
 /** Everything without a notification time: the inbox, tasks and reminders. */
 /**
- * Everything without a notification time, except what is in today's top 3.
- * One place chip is always picked: "No place" or a place. Long press and
- * drag reorders a section.
+ * Reminders without a notification time, then the ones ticked off today. One
+ * place chip is always picked: "No place" or a place. Long press and drag
+ * reorders the open reminders.
  */
 @Composable
-fun BacklogScreen(items: List<Item>, today: LocalDate, actions: Actions, modifier: Modifier = Modifier) {
+fun BacklogScreen(items: List<Item>, actions: Actions, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val store = remember { Store.get(context) }
     var place by rememberSaveable { mutableStateOf(NO_PLACE) }
     var hovered by remember { mutableStateOf<Long?>(null) }
-    val epochDay = today.toEpochDay()
-    val backlog = items.filter { !it.isSubtask && it.remindAt == null && !(it.topSlot != null && it.topDay == epochDay) }
+    val backlog = items.filter { it.remindAt == null }
     val places = backlog.mapNotNull { it.place }.distinct().sortedWith(String.CASE_INSENSITIVE_ORDER)
     val selected = place.takeIf { it in places } ?: NO_PLACE
-    val shown = backlog.filter { if (selected == NO_PLACE) it.place == null else it.place == selected }.sortedBy { it.done }
+    val shown = backlog.filter { if (selected == NO_PLACE) it.place == null else it.place == selected }
+    val open = shown.filter { !it.done }
+    val done = shown.filter { it.done }
 
     LazyColumn(modifier, contentPadding = PaddingValues(bottom = 88.dp)) {
         item {
@@ -80,39 +74,43 @@ fun BacklogScreen(items: List<Item>, today: LocalDate, actions: Actions, modifie
                 }
             }
         }
-        listOf(
-            R.string.inbox to Kind.INBOX,
-            R.string.tasks to Kind.TASK,
-            R.string.reminders to Kind.REMINDER,
-        ).forEach { (label, kind) ->
-            val section = shown.filter { it.kind == kind }
-            if (section.isEmpty()) return@forEach
-            item(key = kind.key) {
-                SectionLabel(stringResource(label), section.count { !it.done })
+        if (open.isNotEmpty()) {
+            item(key = "open") {
+                SectionLabel(stringResource(R.string.reminders), open.size)
                 Group {
-                    section.forEachIndexed { i, item ->
+                    open.forEachIndexed { i, item ->
                         if (i > 0) GroupDivider()
-                        val rowModifier = Modifier
-                            .background(if (hovered == item.id) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                            .itemDropTarget(onHover = { hovered = if (it) item.id else hovered.takeIf { h -> h != item.id } }) { dragged ->
-                                val from = section.indexOfFirst { it.id == dragged }
-                                if (from < 0 || dragged == item.id) return@itemDropTarget
-                                store.reorder(section.toMutableList().apply { add(i, removeAt(from)) })
-                            }
-                        if (kind == Kind.INBOX) {
-                            InboxRow(item, rowModifier, onOpen = { actions.open(item) }, onMove = { store.save(item.copy(kind = it), store.subtasks(item.id)) },
-                                onDelete = { store.delete(item.id) })
-                        } else {
-                            ItemRow(
-                                title = item.title,
-                                meta = itemMeta(item, items.filter { it.parentId == item.id }),
-                                onClick = { actions.open(item) },
-                                done = item.done,
-                                leading = { CheckCircle(item.done, { actions.toggle(item) }) },
-                                modifier = rowModifier,
-                                dragId = item.id,
-                            )
-                        }
+                        ItemRow(
+                            title = item.title,
+                            meta = itemMeta(item),
+                            onClick = { actions.open(item) },
+                            leading = { CheckCircle(false, { actions.toggle(item) }) },
+                            modifier = Modifier
+                                .background(if (hovered == item.id) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                .itemDropTarget(onHover = { hovered = if (it) item.id else hovered.takeIf { h -> h != item.id } }) { dragged ->
+                                    val from = open.indexOfFirst { it.id == dragged }
+                                    if (from < 0 || dragged == item.id) return@itemDropTarget
+                                    store.reorder(open.toMutableList().apply { add(i, removeAt(from)) })
+                                },
+                            dragId = item.id,
+                        )
+                    }
+                }
+            }
+        }
+        if (done.isNotEmpty()) {
+            item(key = "done") {
+                SectionLabel(stringResource(R.string.done_today), done.size)
+                Group {
+                    done.forEachIndexed { i, item ->
+                        if (i > 0) GroupDivider()
+                        ItemRow(
+                            title = item.title,
+                            meta = itemMeta(item),
+                            onClick = { actions.open(item) },
+                            done = true,
+                            leading = { CheckCircle(true, { actions.toggle(item) }) },
+                        )
                     }
                 }
             }
@@ -131,35 +129,3 @@ fun BacklogScreen(items: List<Item>, today: LocalDate, actions: Actions, modifie
 
 // Stands for the "No place" chip. Places are user text, so it can't be one.
 private const val NO_PLACE = "\u0000"
-
-@Composable
-private fun InboxRow(item: Item, modifier: Modifier, onOpen: () -> Unit, onMove: (Kind) -> Unit, onDelete: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    ItemRow(
-        title = item.title,
-        meta = itemMeta(item, emptyList()),
-        onClick = onOpen,
-        leading = { Icon(Icons.Outlined.Inbox, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = modifier,
-        dragId = item.id,
-        trailing = {
-            Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.more)) }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.make_task)) }, onClick = {
-                        menu = false
-                        onMove(Kind.TASK)
-                    })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.make_reminder)) }, onClick = {
-                        menu = false
-                        onMove(Kind.REMINDER)
-                    })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = {
-                        menu = false
-                        onDelete()
-                    })
-                }
-            }
-        },
-    )
-}

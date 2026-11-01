@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,14 +72,11 @@ fun SearchScreen(items: List<Item>, today: LocalDate, actions: Actions, onBack: 
                         Group {
                             results.forEachIndexed { i, item ->
                                 if (i > 0) GroupDivider()
-                                val parent = item.parentId?.let { id -> items.find { it.id == id } }
                                 ItemRow(
                                     title = item.title,
                                     meta = itemMeta(
                                         item,
-                                        items.filter { it.parentId == item.id },
                                         extra = listOfNotNull(
-                                            parent?.let { Icons.Outlined.Checklist to it.title },
                                             item.remindAt?.let { Icons.Outlined.Notifications to Format.dateTime(context, it, today) },
                                         ),
                                     ),
