@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Notes
-import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Repeat
@@ -124,21 +123,16 @@ fun Meta(parts: List<Pair<ImageVector, String>>, color: Color = MaterialTheme.co
 }
 
 @Composable
-fun itemMeta(item: Item, subtasks: List<Item>, extra: List<Pair<ImageVector, String>> = emptyList()): List<Pair<ImageVector, String>> {
+fun itemMeta(item: Item, extra: List<Pair<ImageVector, String>> = emptyList()): List<Pair<ImageVector, String>> {
     val context = LocalContext.current
     val note = stringResource(R.string.note)
     return buildList {
         addAll(extra)
         item.repeat?.let { add(Icons.Outlined.Repeat to Format.repeat(context, it)) }
         item.place?.let { add(Icons.Outlined.LocationOn to it) }
-        if (subtasks.isNotEmpty()) add(Icons.Outlined.Checklist to "${subtasks.count { it.done }}/${subtasks.size}")
         if (item.note != null) add(Icons.AutoMirrored.Outlined.Notes to note)
     }
 }
-
-/** The parent task of a subtask, shown under its title. */
-fun parentMeta(items: List<Item>, item: Item): List<Pair<ImageVector, String>> =
-    item.parentId?.let { id -> items.find { it.id == id } }?.let { listOf(Icons.Outlined.Checklist to it.title) }.orEmpty()
 
 /**
  * One row: an optional time column, a leading slot that is always 40 dp wide

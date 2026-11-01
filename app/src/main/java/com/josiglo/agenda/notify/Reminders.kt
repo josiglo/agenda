@@ -14,7 +14,6 @@ import android.os.Build
 import com.josiglo.agenda.MainActivity
 import com.josiglo.agenda.R
 import com.josiglo.agenda.data.Item
-import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
 import com.josiglo.agenda.settings.Settings
 
@@ -37,15 +36,14 @@ object Reminders {
         val store = Store.get(context)
         val manager = context.getSystemService(NotificationManager::class.java)
         createChannel(context, manager)
-        val open = store.items.value.filter { it.remindAt != null && !it.done && it.kind != Kind.INBOX }
+        val open = store.items.value.filter { it.remindAt != null && !it.done }
         val due = open.filter { it.remindAt!! <= now }
         val many = due.size > 1
         val keep = due.map { it.id.toInt() }.toSet() + if (many) setOf(SUMMARY_ID) else emptySet()
         manager.activeNotifications.filter { it.id !in keep }.forEach { manager.cancel(it.id) }
         if (canPost(context)) {
             due.forEach { item ->
-                val parent = item.parentId?.let { store.find(it) }
-                manager.notify(item.id.toInt(), build(context, item, parent, many, silent = item.alertedAt == item.remindAt))
+                manager.notify(item.id.toInt(), build(context, item, many, silent = item.alertedAt == item.remindAt))
                 store.markAlerted(item.id, item.remindAt!!)
             }
             if (many) manager.notify(SUMMARY_ID, summary(context, due.size))
@@ -105,7 +103,7 @@ object Reminders {
             )
             .build()
 
-    private fun build(context: Context, item: Item, parent: Item?, many: Boolean, silent: Boolean): Notification {
+    private fun build(context: Context, item: Item, many: Boolean, silent: Boolean): Notification {
         val id = item.id.toInt()
         val open = PendingIntent.getActivity(
             context, id,
@@ -128,7 +126,7 @@ object Reminders {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val text = listOfNotNull(parent?.title, item.note, item.place).joinToString(" · ").ifEmpty { null }
+        val text = listOfNotNull(item.note, item.place).joinToString(" · ").ifEmpty { null }
         return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(if (many) R.drawable.ic_notification_many else R.drawable.ic_notification)
             .setGroup(GROUP)

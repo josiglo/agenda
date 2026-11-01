@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.josiglo.agenda.R
 import com.josiglo.agenda.data.Item
-import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
 import com.josiglo.agenda.settings.Settings
 import com.josiglo.agenda.time.DayClock
@@ -69,7 +68,7 @@ private const val FUTURE_WEEKS = 260
 
 /**
  * One week from Monday to Sunday per page, swiped sideways, with past days
- * dimmed. Every day from today on has a button to add an item on that day.
+ * dimmed. Every day from today on has a button to add a reminder on that day.
  * Items can be dragged to today or a later day after a long press and keep
  * their time. Holding a drag at the left or right edge turns the page.
  * Calendar events stay where they are.
@@ -135,10 +134,9 @@ private fun WeekPage(
     val sunday = monday.plusDays(6)
     val events = rememberEvents(calendars, clock.start(monday), clock.end(sunday))
     val itemsByDay = items
-        .filter { it.kind != Kind.INBOX && it.remindAt != null && clock.day(it.remindAt) in monday..sunday }
+        .filter { it.remindAt != null && clock.day(it.remindAt) in monday..sunday }
         .groupBy { clock.day(it.remindAt!!) }
     val eventsByDay = events.filter { it.day in monday..sunday }.groupBy { it.day }
-    val newKind = preferences.kindOrder.first { it != Kind.INBOX }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 88.dp)) {
@@ -177,7 +175,7 @@ private fun WeekPage(
                             )
                             if (!past) {
                                 IconButton(onClick = {
-                                    actions.push(Screen.Edit(0, newKind, remindAt = defaultTime(day, today, preferences.morning)))
+                                    actions.push(Screen.Edit(0, remindAt = defaultTime(day, today, preferences.morning)))
                                 }) {
                                     Icon(Icons.Outlined.Add, stringResource(R.string.add_on_day), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -193,7 +191,7 @@ private fun WeekPage(
                                             val item = entry.item
                                             ItemRow(
                                                 title = item.title,
-                                                meta = itemMeta(item, items.filter { it.parentId == item.id }, parentMeta(items, item)),
+                                                meta = itemMeta(item),
                                                 onClick = { actions.open(item) },
                                                 onTimeClick = { rescheduling = item },
                                                 time = Format.time(entry.time),

@@ -9,24 +9,11 @@
     <string name="add_on_day">Add on this day</string>
     <string name="backlog">Backlog</string>
     <string name="backlog_subtitle">Everything without a time</string>
-    <string name="backlog_empty">Nothing here. New items land in the inbox.</string>
-    <string name="inbox">Inbox</string>
-    <string name="tasks">Tasks</string>
-    <string name="task">Task</string>
+    <string name="backlog_empty">Nothing here. Reminders without a time collect here.</string>
+    <string name="done_today">Done today</string>
+    <string name="today_empty">Nothing planned for today.</string>
     <string name="reminders">Reminders</string>
-    <string name="reminder">Reminder</string>
     <string name="no_place">No place</string>
-    <string name="make_task">Make it a task</string>
-    <string name="make_reminder">Make it a reminder</string>
-    <string name="top_3">Top 3</string>
-    <string name="schedule">Schedule</string>
-    <string name="choose_task">Choose a task</string>
-    <string name="choose_other_task">Choose another task</string>
-    <string name="remove_from_top">Remove from top 3</string>
-    <string name="new_task">New task</string>
-    <string name="add_to_top_3">Add to today\'s top 3</string>
-    <string name="in_top_3">In today\'s top 3</string>
-    <string name="top_3_full">Today\'s top 3 is full</string>
     <string name="all_day">All day</string>
     <string name="no_title">(No title)</string>
     <string name="note">Note</string>
@@ -37,7 +24,6 @@
     <string name="no_results">Nothing found</string>
     <string name="settings">Settings</string>
     <string name="back">Back</string>
-    <string name="more">More</string>
     <string name="close">Close</string>
     <string name="clear">Clear</string>
     <string name="delete">Delete</string>
@@ -55,9 +41,6 @@
     <string name="place">Place</string>
     <string name="add_notification">Add notification</string>
     <string name="does_not_repeat">Does not repeat</string>
-    <string name="subtasks">Subtasks</string>
-    <string name="add_subtask">Add subtask</string>
-    <string name="parent_task">Parent task</string>
 
     <string name="repeat">Repeat</string>
     <string name="every">Every</string>
@@ -137,10 +120,6 @@
     <string name="day_start">New day starts at</string>
     <string name="day_start_summary">%1$s. The top 3 and finished items reset then.</string>
     <string name="places">Places</string>
-    <string name="items">Items</string>
-    <string name="kind_order">Order of kinds</string>
-    <string name="kind_order_summary">The order of the chips in the editor. New items start as the first one.</string>
-    <string name="move_up">Move up</string>
     <string name="places_none">No places yet. Set one on an item.</string>
     <string name="rename_place">Rename place</string>
     <string name="remove_place">Remove from all items</string>

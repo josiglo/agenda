@@ -49,7 +49,6 @@ import com.josiglo.agenda.R
 import com.josiglo.agenda.calendar.Calendars
 import com.josiglo.agenda.calendar.Event
 import com.josiglo.agenda.data.Item
-import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Store
 import com.josiglo.agenda.settings.Settings
 import kotlinx.coroutines.Dispatchers
@@ -58,17 +57,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 sealed interface Screen {
-    /**
-     * The editor for item [id], or for a new item of [kind] when [id] is 0.
-     * A new item starts with [remindAt], and is a subtask of [parentId] if set.
-     */
-    data class Edit(
-        val id: Long,
-        val kind: Kind = Kind.TASK,
-        val topSlot: Int? = null,
-        val remindAt: Long? = null,
-        val parentId: Long? = null,
-    ) : Screen
+    /** The editor for item [id], or for a new item starting at [remindAt] when [id] is 0. */
+    data class Edit(val id: Long, val remindAt: Long? = null) : Screen
     data object Settings : Screen
     data object Places : Screen
     data object Search : Screen
@@ -140,24 +130,17 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         // Keyed, so going from one item's editor to another's starts with fresh state.
         is Screen.Edit -> key(screen) {
             EditorScreen(
-            id = screen.id,
-            newKind = screen.kind,
-            newTopSlot = screen.topSlot,
-            newRemindAt = screen.remindAt,
-            newParentId = screen.parentId,
-            today = today,
-            onClose = ::pop,
-            onDeleted = { gone ->
-                pop()
-                scope.launch {
-                    val result = snackbar.showSnackbar(resources.getString(R.string.deleted), resources.getString(R.string.undo), withDismissAction = true)
-                    if (result == SnackbarResult.ActionPerformed) store.restore(gone)
-                }
-            },
-            // A new parent was just saved, so its editor is replaced by one for the saved item.
-            onOpenSubtask = { parentId, subtaskId ->
-                stack = stack.dropLast(1) + Screen.Edit(parentId) + Screen.Edit(subtaskId ?: 0, parentId = parentId)
-            },
+                id = screen.id,
+                newRemindAt = screen.remindAt,
+                today = today,
+                onClose = ::pop,
+                onDeleted = { gone ->
+                    pop()
+                    scope.launch {
+                        val result = snackbar.showSnackbar(resources.getString(R.string.deleted), resources.getString(R.string.undo), withDismissAction = true)
+                        if (result == SnackbarResult.ActionPerformed) store.restore(gone)
+                    }
+                },
             )
         }
         Screen.Settings -> SettingsScreen(onBack = ::pop, onPlaces = { push(Screen.Places) })
@@ -194,7 +177,7 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                push(Screen.Edit(0, preferences.kindOrder.first()))
+                push(Screen.Edit(0))
             }) {
                 Icon(Icons.Rounded.Add, stringResource(R.string.add))
             }
@@ -206,7 +189,7 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
         when (tab) {
             Tab.TODAY -> TodayScreen(items, events, clock, today, actions, modifier)
             Tab.WEEK -> WeekScreen(items, preferences.calendars, clock, today, actions, modifier)
-            Tab.BACKLOG -> BacklogScreen(items, today, actions, modifier)
+            Tab.BACKLOG -> BacklogScreen(items, actions, modifier)
         }
     }
 }

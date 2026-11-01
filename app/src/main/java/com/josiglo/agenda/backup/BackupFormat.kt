@@ -1,12 +1,10 @@
 package com.josiglo.agenda.backup
 
 import com.josiglo.agenda.data.Item
-import com.josiglo.agenda.data.Kind
 import com.josiglo.agenda.data.Repeat
 import com.josiglo.agenda.data.RepeatFrom
 import com.josiglo.agenda.data.RepeatUnit
 import com.josiglo.agenda.settings.Preferences
-import com.josiglo.agenda.settings.Settings
 import com.josiglo.agenda.settings.ThemeMode
 import org.json.JSONArray
 import org.json.JSONObject
@@ -29,25 +27,20 @@ object BackupFormat {
             put("morning", p.morning.toString())
             put("evening", p.evening.toString())
             put("dayStart", p.dayStart.toString())
-            put("kindOrder", p.kindOrder.joinToString(",") { it.key })
         })
         put("items", JSONArray().apply {
             data.items.forEach { item ->
                 put(JSONObject().apply {
                     put("id", item.id)
-                    put("kind", item.kind.key)
                     put("title", item.title)
                     put("note", item.note ?: JSONObject.NULL)
                     put("place", item.place ?: JSONObject.NULL)
-                    put("parentId", item.parentId ?: JSONObject.NULL)
                     put("position", item.position)
                     put("remindAt", item.remindAt ?: JSONObject.NULL)
                     put("repeat", item.repeat?.let {
                         JSONObject().put("every", it.every).put("unit", it.unit.key).put("from", it.from.key)
                     } ?: JSONObject.NULL)
                     put("doneAt", item.doneAt ?: JSONObject.NULL)
-                    put("topSlot", item.topSlot ?: JSONObject.NULL)
-                    put("topDay", item.topDay ?: JSONObject.NULL)
                     put("alertedAt", item.alertedAt ?: JSONObject.NULL)
                     put("nextId", item.nextId ?: JSONObject.NULL)
                     put("created", item.created)
@@ -75,7 +68,6 @@ object BackupFormat {
                 morning = settings.time("morning") ?: defaults.morning,
                 evening = settings.time("evening") ?: defaults.evening,
                 dayStart = settings.time("dayStart") ?: defaults.dayStart,
-                kindOrder = Settings.kindOrder(settings.optString("kindOrder")),
             )
             val array = json.getJSONArray("items")
             val items = (0 until array.length()).map { i ->
@@ -87,17 +79,13 @@ object BackupFormat {
                 }
                 Item(
                     id = item.getLong("id"),
-                    kind = Kind.fromKey(item.optString("kind")) ?: Kind.INBOX,
                     title = item.getString("title"),
                     note = item.stringOrNull("note"),
                     place = item.stringOrNull("place"),
-                    parentId = item.longOrNull("parentId"),
                     position = item.optLong("position", i.toLong()),
                     remindAt = item.longOrNull("remindAt"),
                     repeat = repeat,
                     doneAt = item.longOrNull("doneAt"),
-                    topSlot = item.longOrNull("topSlot")?.toInt(),
-                    topDay = item.longOrNull("topDay"),
                     alertedAt = item.longOrNull("alertedAt"),
                     nextId = item.longOrNull("nextId"),
                     created = item.optLong("created"),
