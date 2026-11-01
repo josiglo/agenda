@@ -11,11 +11,13 @@ The bottom navigation has three pages:
   their subtasks. Ticked items stay on the page, crossed out, until the day
   ends. Open items from earlier days stay at the top of the schedule with
   their date in red.
-- Week: this week from Monday to Sunday with its items and calendar
-  events. Past days are dimmed. Show next week at the end adds another week,
-  as often as needed. After a long press, a task or reminder can be dragged
-  to today or a later day and keeps its time. Calendar events stay where they
-  are.
+- Week: one week from Monday to Sunday with its items and calendar events,
+  and the dates of the week under the title. Swiping sideways shows the next
+  or previous week, and the calendar button goes back to this week. Past days
+  are dimmed. Every day from today on has a button that adds a task on that
+  day. After a long press, a task or reminder can be dragged to today or a
+  later day and keeps its time. Holding a drag at the left or right edge
+  turns to the next or previous week. Calendar events stay where they are.
 - Backlog: everything without a notification time that isn't in today's top
   3, in three sections. The inbox collects entries that aren't sorted yet,
   then come tasks and reminders. Chips at the top filter by place. One is
@@ -38,8 +40,8 @@ editor. Their order is set in Settings, Order of kinds:
   reminder moves it out of the inbox. The menu of an inbox entry does the same.
 - Tasks have a description, a place, subtasks, a notification and a repeat.
   A task or one of its subtasks can go into today's top 3. Subtasks have all
-  fields of a task except subtasks of their own. The arrow next to a saved
-  subtask opens it.
+  fields of a task except subtasks of their own. They are added and edited in
+  their own editor, which also changes the title of the parent task.
 - Reminders have the same fields as tasks without subtasks.
 
 A new notification starts from the same choices as rescheduling. Its day and
@@ -59,8 +61,7 @@ The day starts at midnight, or at the time set in Settings, New day starts
 at. Then the top 3 empties, unfinished top 3 items go back to their list, and
 items ticked off before that are deleted. Open tasks and reminders with a
 notification on a past day move to the new day at the same time and notify
-again. Items repeating on a schedule stay on their date, shown as overdue on
-Today, so the schedule doesn't drift.
+again. This includes repeating items.
 
 ## Notifications
 

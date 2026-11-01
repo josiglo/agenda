@@ -193,8 +193,7 @@ class Store private constructor(private val context: Context) {
     /**
      * Deletes items ticked off before today, empties top 3 slots of past
      * days, and moves open items with a notification on a past day to today
-     * at the same time. Items repeating on a schedule stay on their date, so
-     * the schedule doesn't drift.
+     * at the same time, so nothing stays behind on a day that is over.
      */
     @Synchronized
     fun purge(clock: DayClock) {
@@ -202,8 +201,7 @@ class Store private constructor(private val context: Context) {
         val start = clock.start(today).toString()
         val zone = clock.zone
         val missed = _items.value.filter {
-            !it.done && it.kind != Kind.INBOX && it.remindAt != null && it.remindAt < clock.start(today) &&
-                it.repeat?.from != RepeatFrom.SCHEDULE
+            !it.done && it.kind != Kind.INBOX && it.remindAt != null && it.remindAt < clock.start(today)
         }
         db.transaction {
             missed.forEach { item ->

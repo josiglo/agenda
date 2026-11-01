@@ -56,7 +56,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,6 +69,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -90,10 +90,12 @@ fun EditorScreen(
     id: Long,
     newKind: Kind,
     newTopSlot: Int?,
+    newRemindAt: Long?,
+    newParentId: Long?,
     today: LocalDate,
     onClose: () -> Unit,
     onDeleted: (List<Item>) -> Unit,
-    onOpenSubtask: (Long) -> Unit,
+    onOpenSubtask: (parentId: Long, subtaskId: Long?) -> Unit,
 ) {
     val context = LocalContext.current
     val store = remember { Store.get(context) }
@@ -101,15 +103,16 @@ fun EditorScreen(
     val items by store.items.collectAsStateWithLifecycle()
     val epochDay = today.toEpochDay()
     val preferences by Settings.get(context).preferences.collectAsStateWithLifecycle()
-    val parent = original?.parentId?.let { id -> items.find { it.id == id } }
+    val parentId = original?.parentId ?: newParentId
+    val parent = parentId?.let { id -> items.find { it.id == id } }
 
-    var kind by remember { mutableStateOf(original?.kind ?: newKind) }
+    var kind by remember { mutableStateOf(original?.kind ?: if (parentId != null) Kind.TASK else newKind) }
+    var parentTitle by remember(parent?.id) { mutableStateOf(parent?.title.orEmpty()) }
     var title by remember { mutableStateOf(original?.title.orEmpty()) }
     var note by remember { mutableStateOf(original?.note.orEmpty()) }
     var place by remember { mutableStateOf(original?.place.orEmpty()) }
-    var remindAt by remember { mutableStateOf(original?.remindAt) }
+    var remindAt by remember { mutableStateOf(original?.remindAt ?: newRemindAt) }
     var repeat by remember { mutableStateOf(original?.repeat) }
-    val subtasks = remember { mutableStateListOf<Item>().apply { if (original != null) addAll(store.subtasks(original.id)) } }
     val wasTop = original?.topSlot != null && original.topDay == epochDay
     var inTop by remember { mutableStateOf(wasTop || newTopSlot != null) }
     var pickingWhen by remember { mutableStateOf(false) }
@@ -123,7 +126,7 @@ fun EditorScreen(
     // Writes the item and returns its ID, or null if it was deleted meanwhile.
     fun persist(): Long? {
         val current = if (original != null) store.find(original.id) ?: return null else null
-        val base = (current ?: Item(kind = kind, title = title)).copy(
+        val base = (current ?: Item(kind = kind, title = title, parentId = parentId)).copy(
             kind = kind,
             title = title,
             note = note,
@@ -131,12 +134,15 @@ fun EditorScreen(
             remindAt = if (kind == Kind.INBOX) null else remindAt,
             repeat = if (kind == Kind.INBOX || remindAt == null) null else repeat,
         )
-        val keepSubtasks = if (kind == Kind.TASK && parent == null) subtasks.toList() else emptyList()
         val savedId = if (current == null) {
-            store.add(base, keepSubtasks.map { it.title })
+            store.add(base)
         } else {
-            store.save(base, if (parent == null) keepSubtasks else store.subtasks(current.id))
+            // Turning a task into another kind drops its subtasks.
+            store.save(base, if (kind == Kind.TASK) store.subtasks(current.id) else emptyList())
             current.id
+        }
+        if (parent != null && parentTitle.isNotBlank() && parentTitle.trim() != parent.title) {
+            store.save(parent.copy(title = parentTitle), store.subtasks(parent.id))
         }
         val isTop = store.find(savedId)?.let { it.topSlot != null && it.topDay == epochDay } == true
         if (kind == Kind.TASK && inTop && !isTop) {
@@ -178,18 +184,14 @@ fun EditorScreen(
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 if (parent != null) {
-                    Row(
-                        Modifier.padding(horizontal = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Outlined.Checklist, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            stringResource(R.string.subtask_of, parent.title),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
+                    PlainField(
+                        value = parentTitle,
+                        onValueChange = { parentTitle = it },
+                        placeholder = stringResource(R.string.parent_task),
+                        style = MaterialTheme.typography.titleSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        singleLine = true,
+                        leading = { Icon(Icons.Outlined.Checklist, stringResource(R.string.parent_task)) },
+                    )
                 } else {
                     Row(
                         Modifier.padding(horizontal = 24.dp).horizontalScroll(rememberScrollState()),
@@ -247,10 +249,14 @@ fun EditorScreen(
                 }
                 if (kind == Kind.TASK) {
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-                    if (parent == null) {
-                        Subtasks(subtasks, onOpen = { sub ->
-                            if (title.isNotBlank() && persist() != null) onOpenSubtask(sub.id)
-                        })
+                    if (parentId == null) {
+                        Subtasks(
+                            subtasks = original?.let { o -> items.filter { it.parentId == o.id } }.orEmpty(),
+                            today = today,
+                            enabled = title.isNotBlank(),
+                            onToggle = { store.setDone(it.id, !it.done) },
+                            onOpen = { sub -> persist()?.let { onOpenSubtask(it, sub?.id) } },
+                        )
                     }
                     TopToggle(
                         inTop = inTop,
@@ -398,8 +404,13 @@ private fun FieldRow(icon: ImageVector, text: String, muted: Boolean, onClick: (
     }
 }
 
+/**
+ * The subtasks as rows that open their own editor. [onOpen] with null adds a
+ * new one. Both save this task first, so [enabled] needs a title.
+ */
 @Composable
-private fun Subtasks(subtasks: MutableList<Item>, onOpen: (Item) -> Unit) {
+private fun Subtasks(subtasks: List<Item>, today: LocalDate, enabled: Boolean, onToggle: (Item) -> Unit, onOpen: (Item?) -> Unit) {
+    val context = LocalContext.current
     Row(Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Outlined.Checklist, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
@@ -408,38 +419,36 @@ private fun Subtasks(subtasks: MutableList<Item>, onOpen: (Item) -> Unit) {
             modifier = Modifier.padding(start = 16.dp),
         )
     }
-    subtasks.forEachIndexed { i, sub ->
-        Row(Modifier.padding(start = 48.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            CheckCircle(sub.done, {
-                subtasks[i] = sub.copy(doneAt = if (sub.done) null else System.currentTimeMillis())
-            })
-            TextField(
-                value = sub.title,
-                onValueChange = { subtasks[i] = sub.copy(title = it) },
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.subtask)) },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-                modifier = Modifier.weight(1f),
-            )
-            if (sub.id != 0L) {
-                IconButton(onClick = { onOpen(sub) }) {
-                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.open_subtask))
-                }
-            } else {
-                IconButton(onClick = { subtasks.removeAt(i) }) { Icon(Icons.Outlined.Close, stringResource(R.string.remove)) }
+    subtasks.forEach { sub ->
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled) { onOpen(sub) }
+                .padding(start = 48.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CheckCircle(sub.done, { onToggle(sub) })
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(
+                    sub.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (sub.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    textDecoration = if (sub.done) TextDecoration.LineThrough else null,
+                )
+                Meta(
+                    listOfNotNull(
+                        sub.remindAt?.let { Icons.Outlined.Notifications to Format.dateTime(context, it, today) },
+                        sub.place?.let { Icons.Outlined.LocationOn to it },
+                    ),
+                )
             }
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable { subtasks.add(Item(kind = Kind.TASK, title = "")) }
+            .clickable(enabled = enabled) { onOpen(null) }
             .padding(start = 56.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

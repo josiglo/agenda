@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -57,8 +58,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 sealed interface Screen {
-    /** The editor for item [id], or for a new item of [kind] when [id] is 0. */
-    data class Edit(val id: Long, val kind: Kind = Kind.TASK, val topSlot: Int? = null) : Screen
+    /**
+     * The editor for item [id], or for a new item of [kind] when [id] is 0.
+     * A new item starts with [remindAt], and is a subtask of [parentId] if set.
+     */
+    data class Edit(
+        val id: Long,
+        val kind: Kind = Kind.TASK,
+        val topSlot: Int? = null,
+        val remindAt: Long? = null,
+        val parentId: Long? = null,
+    ) : Screen
     data object Settings : Screen
     data object Places : Screen
     data object Search : Screen
@@ -127,10 +137,14 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
     val events = rememberEvents(preferences.calendars, clock.start(today), clock.end(today))
 
     when (val screen = stack.lastOrNull()) {
-        is Screen.Edit -> EditorScreen(
+        // Keyed, so going from one item's editor to another's starts with fresh state.
+        is Screen.Edit -> key(screen) {
+            EditorScreen(
             id = screen.id,
             newKind = screen.kind,
             newTopSlot = screen.topSlot,
+            newRemindAt = screen.remindAt,
+            newParentId = screen.parentId,
             today = today,
             onClose = ::pop,
             onDeleted = { gone ->
@@ -140,8 +154,12 @@ fun AgendaApp(openItem: Long?, onOpenHandled: () -> Unit) {
                     if (result == SnackbarResult.ActionPerformed) store.restore(gone)
                 }
             },
-            onOpenSubtask = { push(Screen.Edit(it)) },
-        )
+            // A new parent was just saved, so its editor is replaced by one for the saved item.
+            onOpenSubtask = { parentId, subtaskId ->
+                stack = stack.dropLast(1) + Screen.Edit(parentId) + Screen.Edit(subtaskId ?: 0, parentId = parentId)
+            },
+            )
+        }
         Screen.Settings -> SettingsScreen(onBack = ::pop, onPlaces = { push(Screen.Places) })
         Screen.Places -> PlacesScreen(onBack = ::pop)
         Screen.Search -> SearchScreen(items, today, actions, onBack = ::pop)

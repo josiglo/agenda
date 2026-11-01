@@ -30,6 +30,9 @@ object Format {
 
     fun dayMonth(date: LocalDate): String = dayMonthFormat.format(date)
 
+    /** "26 Oct – 1 Nov" for the week starting on [monday]. */
+    fun weekRange(monday: LocalDate): String = dayMonth(monday) + " – " + dayMonth(monday.plusDays(6))
+
     /** "Today", "Tomorrow", a weekday within the next week, else a short date. */
     fun day(context: Context, date: LocalDate, today: LocalDate): String = when {
         date == today -> context.getString(R.string.today)

@@ -5,9 +5,8 @@
     <string name="tomorrow">Tomorrow</string>
     <string name="yesterday">Yesterday</string>
     <string name="week">Week</string>
-    <string name="week_subtitle">This week. Drag items to move them.</string>
-    <string name="show_next_week">Show next week</string>
-    <string name="nothing_planned">Nothing planned</string>
+    <string name="this_week">This week</string>
+    <string name="add_on_day">Add on this day</string>
     <string name="backlog">Backlog</string>
     <string name="backlog_subtitle">Everything without a time</string>
     <string name="backlog_empty">Nothing here. New items land in the inbox.</string>
@@ -41,7 +40,6 @@
     <string name="more">More</string>
     <string name="close">Close</string>
     <string name="clear">Clear</string>
-    <string name="remove">Remove</string>
     <string name="delete">Delete</string>
     <string name="deleted">Deleted</string>
     <string name="undo">Undo</string>
@@ -58,10 +56,8 @@
     <string name="add_notification">Add notification</string>
     <string name="does_not_repeat">Does not repeat</string>
     <string name="subtasks">Subtasks</string>
-    <string name="subtask">Subtask</string>
     <string name="add_subtask">Add subtask</string>
-    <string name="open_subtask">Open subtask</string>
-    <string name="subtask_of">Subtask of %1$s</string>
+    <string name="parent_task">Parent task</string>
 
     <string name="repeat">Repeat</string>
     <string name="every">Every</string>
