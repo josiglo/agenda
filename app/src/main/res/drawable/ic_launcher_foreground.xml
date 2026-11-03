@@ -3,15 +3,14 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:fillColor="#D6E3FF" android:pathData="M38,31.5a6.5,6.5 0,1 1,0 13a6.5,6.5 0,1 1,0 -13z" />
-    <path android:strokeColor="#415F91" android:strokeWidth="2.4" android:strokeLineCap="round"
-        android:strokeLineJoin="round" android:pathData="M35,38.2l2.2,2.2l4,-4.4" />
-    <path android:strokeColor="#D6E3FF" android:strokeAlpha="0.55" android:strokeWidth="6"
-        android:strokeLineCap="round" android:pathData="M52,38h22" />
-    <path android:strokeColor="#EEF2FF" android:strokeWidth="2.6"
-        android:pathData="M38,48.8a5.2,5.2 0,1 1,0 10.4a5.2,5.2 0,1 1,0 -10.4z" />
-    <path android:strokeColor="#EEF2FF" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M52,54h18" />
-    <path android:strokeColor="#EEF2FF" android:strokeWidth="2.6"
-        android:pathData="M38,64.8a5.2,5.2 0,1 1,0 10.4a5.2,5.2 0,1 1,0 -10.4z" />
-    <path android:strokeColor="#EEF2FF" android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M52,70h12" />
+    <!-- Material Symbols Rounded "check", scaled into the 66 dp safe zone. -->
+    <group
+        android:scaleX="0.0777"
+        android:scaleY="0.0777"
+        android:translateX="16.7"
+        android:translateY="91.3">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M382,-354L721,-693Q733,-705 749,-705Q765,-705 777,-693Q789,-681 789,-664.5Q789,-648 777,-636L410,-268Q398,-256 382,-256Q366,-256 354,-268L182,-440Q170,-452 170.5,-468.5Q171,-485 183,-497Q195,-509 211.5,-509Q228,-509 240,-497L382,-354Z" />
+    </group>
 </vector>

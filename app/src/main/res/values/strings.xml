@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Agenda</string>
+    <string name="app_name">Reminders</string>
 
     <string name="today">Today</string>
     <string name="tomorrow">Tomorrow</string>
@@ -101,11 +101,15 @@
     <string name="monday_morning">Monday morning, %1$s</string>
     <string name="pick_date_time">Pick a day and time</string>
     <string name="time">Time</string>
+    <string name="date">Date</string>
+    <string name="notify_now">Notify now</string>
+    <string name="share_label">Add to Reminders</string>
+    <string name="share_title">New reminder</string>
     <string name="time_hint">Time, e.g. 730</string>
 
     <string name="calendars_on_today">Calendars on Today</string>
     <string name="calendar_access">Show calendar events</string>
-    <string name="calendar_access_summary">Allow Agenda to read your calendars</string>
+    <string name="calendar_access_summary">Allow Reminders to read your calendars</string>
     <string name="no_calendars">No calendars on this phone</string>
     <string name="notifications">Notifications</string>
     <string name="notification_access">Allow notifications</string>
@@ -158,8 +162,8 @@
     <string name="backup_restored">Restored</string>
     <string name="backup_restore_failed">This file isn\'t a backup or can\'t be read</string>
 
-    <string name="permission_read_label">read Agenda items</string>
-    <string name="permission_read_description">Read your tasks, reminders and inbox in Agenda.</string>
-    <string name="permission_write_label">add Agenda items</string>
-    <string name="permission_write_description">Add tasks, reminders and inbox entries to Agenda.</string>
+    <string name="permission_read_label">read your reminders</string>
+    <string name="permission_read_description">Read your reminders in the Reminders app.</string>
+    <string name="permission_write_label">add reminders</string>
+    <string name="permission_write_description">Add reminders to the Reminders app.</string>
 </resources>

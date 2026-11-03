@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "agenda"
+rootProject.name = "reminders"
 include(":app")
