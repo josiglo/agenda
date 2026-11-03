@@ -1,10 +1,10 @@
 <resources>
-    <style name="Theme.Agenda" parent="android:Theme.DeviceDefault.DayNight">
+    <style name="Theme.Reminders" parent="android:Theme.DeviceDefault.DayNight">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
     </style>
 
-    <style name="Theme.Agenda.Dialog" parent="Theme.Agenda">
+    <style name="Theme.Reminders.Dialog" parent="Theme.Reminders">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
     </style>

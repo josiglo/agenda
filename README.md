@@ -1,4 +1,4 @@
-# Agenda
+# Reminders
 
 Android app for reminders, with or without a time. Nothing leaves the phone.
 
@@ -43,9 +43,11 @@ monthly on the 1st) or from the day it was done (4 days after done).
 
 Places are free text. Settings, Places renames, merges or removes them.
 
-Earlier versions had inbox entries, tasks with subtasks and a top 3. On
-update, all of them become reminders, and subtasks become reminders of
-their own.
+The app was called Agenda before (`com.josiglo.agenda`) and had inbox
+entries, tasks with subtasks and a top 3. Reminders is a separate app for
+Android, so data moves over through a backup: Back up now in Agenda, then
+Restore in Reminders. Inbox entries, tasks and subtasks from the backup all
+become reminders.
 
 ## The day
 
@@ -66,7 +68,7 @@ notification is open. Several notifications are grouped with their count.
 Notifications stay until Done is pressed. They are pinned, and one that is
 swiped away anyway shows again. They come back after a restart, and the alarm
 is set again after a restart, an update or a change of the clock or time
-zone. Agenda uses exact alarms, which Android allows from version 13 without
+zone. Reminders uses exact alarms, which Android allows from version 13 without
 asking. On Android 12 the settings link to the permission.
 
 ## Calendars
@@ -87,9 +89,9 @@ in a backup file, after asking.
 Other apps, such as Quick Add, can read items and add new ones through a
 content provider.
 
-- URI: `content://com.josiglo.agenda.api/v0/items`
-- Permissions: `com.josiglo.agenda.permission.READ_ITEMS` for queries and
-  `com.josiglo.agenda.permission.WRITE_ITEMS` for inserts. Both are runtime
+- URI: `content://com.josiglo.reminders.api/v0/items`
+- Permissions: `com.josiglo.reminders.permission.READ_ITEMS` for queries and
+  `com.josiglo.reminders.permission.WRITE_ITEMS` for inserts. Both are runtime
   permissions the user grants.
 
 | Column | Type | Meaning |
@@ -115,7 +117,7 @@ Calling apps need a `<queries>` entry to see the provider on Android 11 and newe
 
 ```xml
 <queries>
-    <provider android:authorities="com.josiglo.agenda.api" />
+    <provider android:authorities="com.josiglo.reminders.api" />
 </queries>
 ```
 

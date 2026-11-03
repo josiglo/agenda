@@ -8,11 +8,11 @@ plugins {
 val keystorePath: String? = System.getenv("KEYSTORE_PATH")
 
 android {
-    namespace = "com.josiglo.agenda"
+    namespace = "com.josiglo.reminders"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.josiglo.agenda"
+        applicationId = "com.josiglo.reminders"
         minSdk = 29
         targetSdk = 35
         versionCode = System.getenv("VERSION_CODE")?.toInt() ?: 1

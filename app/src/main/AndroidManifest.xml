@@ -12,13 +12,13 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
 
     <permission
-        android:name="com.josiglo.agenda.permission.READ_ITEMS"
+        android:name="com.josiglo.reminders.permission.READ_ITEMS"
         android:description="@string/permission_read_description"
         android:label="@string/permission_read_label"
         android:protectionLevel="dangerous" />
 
     <permission
-        android:name="com.josiglo.agenda.permission.WRITE_ITEMS"
+        android:name="com.josiglo.reminders.permission.WRITE_ITEMS"
         android:description="@string/permission_write_description"
         android:label="@string/permission_write_label"
         android:protectionLevel="dangerous" />
@@ -27,7 +27,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Agenda">
+        android:theme="@style/Theme.Reminders">
 
         <activity
             android:name=".MainActivity"
@@ -45,7 +45,7 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:taskAffinity=""
-            android:theme="@style/Theme.Agenda.Dialog" />
+            android:theme="@style/Theme.Reminders.Dialog" />
 
         <receiver
             android:name=".notify.ActionReceiver"
@@ -69,10 +69,10 @@
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <provider
-            android:name=".data.AgendaProvider"
-            android:authorities="com.josiglo.agenda.api"
+            android:name=".data.RemindersProvider"
+            android:authorities="com.josiglo.reminders.api"
             android:exported="true"
-            android:readPermission="com.josiglo.agenda.permission.READ_ITEMS"
-            android:writePermission="com.josiglo.agenda.permission.WRITE_ITEMS" />
+            android:readPermission="com.josiglo.reminders.permission.READ_ITEMS"
+            android:writePermission="com.josiglo.reminders.permission.WRITE_ITEMS" />
     </application>
 </manifest>
