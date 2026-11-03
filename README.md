@@ -49,6 +49,14 @@ Android, so data moves over through a backup: Back up now in Agenda, then
 Restore in Reminders. Inbox entries, tasks and subtasks from the backup all
 become reminders.
 
+## Sharing
+
+Text shared from another app to "Add to Reminders" opens a sheet over that
+app. The shared subject, often a page title, becomes the title and the text
+the description. Without a subject, the first line is the title and the rest
+the description. The Date, Time and Notify now chips set the notification,
+and without them the reminder goes to the backlog.
+
 ## The day
 
 The day starts at midnight, or at the time set in Settings, New day starts

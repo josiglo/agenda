@@ -101,6 +101,10 @@
     <string name="monday_morning">Monday morning, %1$s</string>
     <string name="pick_date_time">Pick a day and time</string>
     <string name="time">Time</string>
+    <string name="date">Date</string>
+    <string name="notify_now">Notify now</string>
+    <string name="share_label">Add to Reminders</string>
+    <string name="share_title">New reminder</string>
     <string name="time_hint">Time, e.g. 730</string>
 
     <string name="calendars_on_today">Calendars on Today</string>
