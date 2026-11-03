@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -137,7 +138,7 @@ fun RemindersApp(openItem: Long?, onOpenHandled: () -> Unit) {
                 onDeleted = { gone ->
                     pop()
                     scope.launch {
-                        val result = snackbar.showSnackbar(resources.getString(R.string.deleted), resources.getString(R.string.undo), withDismissAction = true)
+                        val result = snackbar.showSnackbar(resources.getString(R.string.deleted), resources.getString(R.string.undo), duration = SnackbarDuration.Long)
                         if (result == SnackbarResult.ActionPerformed) store.restore(gone)
                     }
                 },
