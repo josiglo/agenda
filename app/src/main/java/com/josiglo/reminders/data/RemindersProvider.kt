@@ -4,6 +4,7 @@ import android.content.ContentProvider
 import android.content.ContentUris
 import android.content.ContentValues
 import android.database.Cursor
+import android.database.MatrixCursor
 import android.net.Uri
 import com.josiglo.reminders.data.RemindersContract.Items
 import com.josiglo.reminders.settings.Settings
@@ -16,7 +17,8 @@ import java.time.ZonedDateTime
  * Lets other apps, such as Quick Add, read items and add new ones. See
  * [RemindersContract].
  *
- * - query: items, optionally filtered, for example `remind_at IS NULL`.
+ * - query: items, optionally filtered, for example `remind_at IS NULL`, or
+ *   the morning and evening times from [RemindersContract.SETTINGS_URI].
  * - insert: adds a reminder. Needs [Items.TITLE]. The notification time
  *   comes from [Items.REMIND_AT], or from [Items.DATE] and [Items.TIME], or
  *   is now with [Items.NOTIFY_NOW]. Without any of them the reminder goes to
@@ -30,6 +32,7 @@ class RemindersProvider : ContentProvider() {
 
     override fun getType(uri: Uri): String? = when (uri) {
         RemindersContract.ITEMS_URI -> "vnd.android.cursor.dir/vnd.com.josiglo.reminders.item"
+        RemindersContract.SETTINGS_URI -> "vnd.android.cursor.item/vnd.com.josiglo.reminders.settings"
         else -> null
     }
 
@@ -40,11 +43,22 @@ class RemindersProvider : ContentProvider() {
         selectionArgs: Array<String>?,
         sortOrder: String?,
     ): Cursor {
+        if (uri == RemindersContract.SETTINGS_URI) return settings()
         require(uri == RemindersContract.ITEMS_URI) { "Unknown URI $uri" }
         val cursor = store.cursor(projection, selection, selectionArgs, sortOrder)
         cursor.setNotificationUri(context!!.contentResolver, RemindersContract.ITEMS_URI)
         return cursor
     }
+
+    private fun settings(): Cursor {
+        val preferences = Settings.get(context!!).preferences.value
+        val columns = arrayOf(RemindersContract.Settings.MORNING, RemindersContract.Settings.EVENING)
+        return MatrixCursor(columns, 1).apply {
+            addRow(arrayOf(hhmm(preferences.morning), hhmm(preferences.evening)))
+        }
+    }
+
+    private fun hhmm(time: LocalTime) = "%02d:%02d".format(time.hour, time.minute)
 
     override fun insert(uri: Uri, values: ContentValues?): Uri {
         require(uri == RemindersContract.ITEMS_URI) { "Insert into ${RemindersContract.ITEMS_URI}, not $uri" }

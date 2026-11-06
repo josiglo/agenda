@@ -47,4 +47,15 @@ object RemindersContract {
         /** Insert only. 1 to show the notification right away. */
         const val NOTIFY_NOW = "notify_now"
     }
+
+    /** One row with the times callers offer as shortcuts. Query only. */
+    val SETTINGS_URI: Uri = "content://$AUTHORITY/v0/settings".toUri()
+
+    object Settings {
+        /** The morning time as HH:mm. */
+        const val MORNING = "morning"
+
+        /** The evening time as HH:mm. */
+        const val EVENING = "evening"
+    }
 }

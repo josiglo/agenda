@@ -114,6 +114,9 @@ content provider.
 Operations:
 
 - `query` returns all reminders. Selections work, for example `remind_at IS NULL`.
+- `query` on `content://com.josiglo.reminders.api/v0/settings` returns one row
+  with the `morning` and `evening` times from the settings as `07:30`. It
+  needs the read permission.
 - `insert` adds a reminder. `title` is required. The notification time comes
   from `remind_at`, or from `date` (`2026-10-30`) and `time` (`07:30`), or is
   now when `notify_now` is 1. A date without a time takes the morning time
